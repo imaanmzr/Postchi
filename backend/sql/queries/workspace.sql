@@ -10,6 +10,25 @@ INSERT INTO workspaces (name, description, created_by)
 VALUES (@name, @description, @created_by)
 RETURNING id;
 
+-- name: UserHasWorkspaceNamed :one
+SELECT EXISTS(
+    SELECT 1
+    FROM workspaces w
+    INNER JOIN workspace_members wm ON wm.workspace_id = w.id
+    WHERE wm.user_id = @user_id
+      AND lower(trim(w.name)) = lower(trim(@name))
+) AS exists;
+
+-- name: UserHasWorkspaceNamedExcluding :one
+SELECT EXISTS(
+    SELECT 1
+    FROM workspaces w
+    INNER JOIN workspace_members wm ON wm.workspace_id = w.id
+    WHERE wm.user_id = @user_id
+      AND lower(trim(w.name)) = lower(trim(@name))
+      AND w.id <> @exclude_workspace_id
+) AS exists;
+
 -- name: AddWorkspaceOwner :exec
 INSERT INTO workspace_members (workspace_id, user_id, role)
 VALUES (@workspace_id, @user_id, 'owner'::workspace_role);

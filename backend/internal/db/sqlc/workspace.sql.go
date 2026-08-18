@@ -387,6 +387,52 @@ func (q *Queries) UpsertWorkspaceMember(ctx context.Context, arg UpsertWorkspace
 	return err
 }
 
+const userHasWorkspaceNamed = `-- name: UserHasWorkspaceNamed :one
+SELECT EXISTS(
+    SELECT 1
+    FROM workspaces w
+    INNER JOIN workspace_members wm ON wm.workspace_id = w.id
+    WHERE wm.user_id = $1
+      AND lower(trim(w.name)) = lower(trim($2))
+) AS exists
+`
+
+type UserHasWorkspaceNamedParams struct {
+	UserID pgtype.UUID `json:"user_id"`
+	Name   string      `json:"name"`
+}
+
+func (q *Queries) UserHasWorkspaceNamed(ctx context.Context, arg UserHasWorkspaceNamedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, userHasWorkspaceNamed, arg.UserID, arg.Name)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const userHasWorkspaceNamedExcluding = `-- name: UserHasWorkspaceNamedExcluding :one
+SELECT EXISTS(
+    SELECT 1
+    FROM workspaces w
+    INNER JOIN workspace_members wm ON wm.workspace_id = w.id
+    WHERE wm.user_id = $1
+      AND lower(trim(w.name)) = lower(trim($2))
+      AND w.id <> $3
+) AS exists
+`
+
+type UserHasWorkspaceNamedExcludingParams struct {
+	UserID             pgtype.UUID `json:"user_id"`
+	Name               string      `json:"name"`
+	ExcludeWorkspaceID pgtype.UUID `json:"exclude_workspace_id"`
+}
+
+func (q *Queries) UserHasWorkspaceNamedExcluding(ctx context.Context, arg UserHasWorkspaceNamedExcludingParams) (bool, error) {
+	row := q.db.QueryRow(ctx, userHasWorkspaceNamedExcluding, arg.UserID, arg.Name, arg.ExcludeWorkspaceID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const workspaceExists = `-- name: WorkspaceExists :one
 SELECT EXISTS(SELECT 1 FROM workspaces WHERE id = $1)
 `

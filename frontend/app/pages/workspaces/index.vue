@@ -31,9 +31,12 @@
       <form class="flex flex-col gap-3" @submit.prevent="create">
         <Input v-model="newName" placeholder="Workspace name" required />
         <Input v-model="newDescription" placeholder="Description (optional)" />
+        <p v-if="nameConflict" class="text-sm" style="color: var(--method-delete)">
+          You already have a workspace with this name.
+        </p>
         <p v-if="createError" class="text-sm" style="color: var(--method-delete)">{{ createError }}</p>
         <div class="flex gap-2">
-          <Button type="submit" variant="primary" :disabled="creating || !newName.trim()">
+          <Button type="submit" variant="primary" :disabled="creating || !newName.trim() || nameConflict">
             {{ creating ? 'Creating…' : 'Create' }}
           </Button>
           <Button type="button" :disabled="creating" @click="closeCreate">Cancel</Button>
@@ -79,6 +82,12 @@ const healthOk = ref(false)
 
 const workspaces = computed(() => wsStore.workspaces)
 
+const nameConflict = computed(() => {
+  const name = newName.value.trim().toLowerCase()
+  if (!name) return false
+  return workspaces.value.some(ws => ws.name.trim().toLowerCase() === name)
+})
+
 onMounted(async () => {
   try {
     const res = await fetch(healthUrl(config.public.apiUrl as string))
@@ -102,11 +111,12 @@ function closeCreate() {
 }
 
 async function create() {
-  if (!newName.value.trim()) return
+  const name = newName.value.trim()
+  if (!name || nameConflict.value) return
   creating.value = true
   createError.value = ''
   try {
-    const ws = await wsStore.create(newName.value.trim(), newDescription.value.trim())
+    const ws = await wsStore.create(name, newDescription.value.trim())
     newName.value = ''
     newDescription.value = ''
     showCreate.value = false

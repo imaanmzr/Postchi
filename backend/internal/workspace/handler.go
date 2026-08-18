@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -15,6 +16,8 @@ import (
 	"github.com/imaanmzr/postchi/backend/internal/db/sqlc"
 	"github.com/imaanmzr/postchi/backend/internal/shared/respond"
 )
+
+var errWorkspaceNameTaken = errors.New("workspace name already in use")
 
 type Handler struct {
 	store *db.Store
@@ -86,8 +89,25 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Name        string `json:"name"`
 		Description string `json:"description"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
 		respond.Error(w, http.StatusBadRequest, "name required")
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Description != "" {
+		req.Description = strings.TrimSpace(req.Description)
+	}
+
+	taken, err := h.store.UserHasWorkspaceNamed(r.Context(), sqlc.UserHasWorkspaceNamedParams{
+		UserID: pgUUID(userID),
+		Name:   req.Name,
+	})
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to create workspace")
+		return
+	}
+	if taken {
+		respond.Error(w, http.StatusConflict, errWorkspaceNameTaken.Error())
 		return
 	}
 
@@ -164,24 +184,57 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pgWsID := pgUUID(wsID)
+	userID, err := auth.UserIDFromContext(r.Context())
+	if err != nil {
+		respond.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	if req.Name != nil {
-		_ = h.store.UpdateWorkspaceName(r.Context(), sqlc.UpdateWorkspaceNameParams{
-			Name: *req.Name,
-			ID:   pgWsID,
+		name := strings.TrimSpace(*req.Name)
+		if name == "" {
+			respond.Error(w, http.StatusBadRequest, "name required")
+			return
+		}
+		taken, err := h.store.UserHasWorkspaceNamedExcluding(r.Context(), sqlc.UserHasWorkspaceNamedExcludingParams{
+			UserID:             pgUUID(userID),
+			Name:               name,
+			ExcludeWorkspaceID: pgWsID,
 		})
+		if err != nil {
+			respond.Error(w, http.StatusInternalServerError, "failed to update workspace")
+			return
+		}
+		if taken {
+			respond.Error(w, http.StatusConflict, errWorkspaceNameTaken.Error())
+			return
+		}
+		if err := h.store.UpdateWorkspaceName(r.Context(), sqlc.UpdateWorkspaceNameParams{
+			Name: name,
+			ID:   pgWsID,
+		}); err != nil {
+			respond.Error(w, http.StatusInternalServerError, "failed to update workspace")
+			return
+		}
 	}
 	if req.Description != nil {
-		_ = h.store.UpdateWorkspaceDescription(r.Context(), sqlc.UpdateWorkspaceDescriptionParams{
-			Description: *req.Description,
+		desc := strings.TrimSpace(*req.Description)
+		if err := h.store.UpdateWorkspaceDescription(r.Context(), sqlc.UpdateWorkspaceDescriptionParams{
+			Description: desc,
 			ID:          pgWsID,
-		})
+		}); err != nil {
+			respond.Error(w, http.StatusInternalServerError, "failed to update workspace")
+			return
+		}
 	}
 	if req.Variables != nil {
 		b, _ := json.Marshal(req.Variables)
-		_ = h.store.UpdateWorkspaceVariables(r.Context(), sqlc.UpdateWorkspaceVariablesParams{
+		if err := h.store.UpdateWorkspaceVariables(r.Context(), sqlc.UpdateWorkspaceVariablesParams{
 			Variables: b,
 			ID:        pgWsID,
-		})
+		}); err != nil {
+			respond.Error(w, http.StatusInternalServerError, "failed to update workspace")
+			return
+		}
 	}
 	h.Get(w, r)
 }

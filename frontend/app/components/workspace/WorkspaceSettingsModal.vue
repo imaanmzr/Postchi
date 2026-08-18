@@ -46,11 +46,14 @@
 
           <label class="text-sm block mb-1">Name</label>
           <Input v-model="name" class="mb-3" />
+          <p v-if="nameConflict" class="text-sm mb-3" style="color: var(--method-delete)">
+            You already have a workspace with this name.
+          </p>
           <label class="text-sm block mb-1">Description</label>
           <textarea v-model="description" class="ui-input w-full h-20 mb-4" />
 
           <div class="flex gap-2">
-            <Button variant="primary" :disabled="saving" @click="save">{{ saving ? 'Saving…' : 'Save' }}</Button>
+            <Button variant="primary" :disabled="saving || !name.trim() || nameConflict" @click="save">{{ saving ? 'Saving…' : 'Save' }}</Button>
             <Button v-if="isOwner" @click="askDelete = true" style="color: var(--method-delete)">Delete workspace</Button>
           </div>
         </template>
@@ -215,6 +218,12 @@ const actionSuccess = ref('')
 
 const isOwner = computed(() => wsStore.current?.role === 'owner')
 
+const nameConflict = computed(() => {
+  const trimmed = name.value.trim().toLowerCase()
+  if (!trimmed) return false
+  return wsStore.workspaces.some(ws => ws.id !== props.workspaceId && ws.name.trim().toLowerCase() === trimmed)
+})
+
 function memberLabel(m: { email: string; display_name: string }) {
   return m.display_name || m.email || 'Unknown user'
 }
@@ -224,6 +233,9 @@ const removeOpen = computed({
 })
 
 onMounted(async () => {
+  if (!wsStore.workspaces.length) {
+    await wsStore.fetchWorkspaces()
+  }
   const ws = await wsStore.fetchWorkspace(props.workspaceId)
   wsStore.setCurrent(ws)
   name.value = ws.name
@@ -233,6 +245,7 @@ onMounted(async () => {
 })
 
 async function save() {
+  if (!name.value.trim() || nameConflict.value) return
   saving.value = true
   actionError.value = ''
   actionSuccess.value = ''
