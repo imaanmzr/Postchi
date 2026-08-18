@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS activity_log;
+DROP TABLE IF EXISTS examples;
+DROP TABLE IF EXISTS history;
+DROP TABLE IF EXISTS environment_variables;
+DROP TABLE IF EXISTS environments;
+DROP TABLE IF EXISTS requests;
+DROP TABLE IF EXISTS collections;
+DROP TABLE IF EXISTS workspace_members;
+DROP TABLE IF EXISTS workspaces;
+DROP TABLE IF EXISTS refresh_tokens;
+DROP TABLE IF EXISTS users;
+DROP TYPE IF EXISTS workspace_role;

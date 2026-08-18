@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html {{ HTML_ATTRS }}>
+  <head {{ HEAD_ATTRS }}>
+    <script>
+      (function () {
+        var key = 'postchi:theme'
+        var themes = ['tokyo-night', 'nord']
+        var stored = localStorage.getItem(key)
+        var theme = themes.indexOf(stored) !== -1 ? stored : 'tokyo-night'
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = 'dark'
+      })()
+    </script>
+    {{ HEAD }}
+  </head>
+  <body {{ BODY_ATTRS }}>
+    {{ APP }}
+  </body>
+</html>

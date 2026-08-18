@@ -1,0 +1,82 @@
+/* Tokyo Night Day — light variant (tokyo-night-vscode-theme) */
+[data-theme="tokyo-night-day"] {
+  --tn-day-bg: #e1e2e7;
+  --tn-day-surface-1: #e9e9ed;
+  --tn-day-surface-2: #d5d6db;
+  --tn-day-surface-3: #d9d9df;
+  --tn-day-border: #c4c5c9;
+  --tn-day-text: #343b58;
+  --tn-day-text-muted: #9699a3;
+  --tn-day-accent: #34548a;
+  --tn-day-accent-btn: #2959aa;
+  --tn-day-danger: #8c4351;
+  --tn-day-success: #485e30;
+  --tn-day-warning: #8f5e15;
+  --tn-day-orange: #b15c00;
+  --tn-day-purple: #5a4a78;
+  --tn-day-green: #587539;
+  --tn-day-cyan: #006c86;
+  --tn-day-input-bg: #e9e9ed;
+
+  --color-bg: var(--tn-day-bg);
+  --color-surface-1: var(--tn-day-surface-1);
+  --color-surface-2: var(--tn-day-surface-2);
+  --color-grid: var(--tn-day-surface-3);
+  --color-border: var(--tn-day-border);
+  --color-text: var(--tn-day-text);
+  --color-text-muted: var(--tn-day-text-muted);
+  --color-accent: var(--tn-day-accent);
+  --color-accent-muted: color-mix(in srgb, var(--tn-day-accent) 18%, transparent);
+  --color-danger: var(--tn-day-danger);
+  --color-success: var(--tn-day-success);
+  --color-overlay: rgba(52, 59, 88, 0.35);
+  --color-input-bg: var(--tn-day-input-bg);
+  --color-on-accent: #ffffff;
+  --color-btn-primary-hover: #1f3f6e;
+
+  --method-get: var(--tn-day-green);
+  --method-post: var(--tn-day-purple);
+  --method-put: var(--tn-day-warning);
+  --method-patch: var(--tn-day-orange);
+  --method-delete: var(--tn-day-danger);
+
+  --color-editor-bg: var(--tn-day-bg);
+  --color-editor-gutter: var(--tn-day-bg);
+  --color-editor-text: var(--tn-day-text);
+  --color-editor-caret: var(--tn-day-accent);
+  --color-editor-active-line: var(--tn-day-surface-3);
+  --color-editor-selection: color-mix(in srgb, var(--tn-day-accent) 22%, transparent);
+  --color-syntax-string: #485e30;
+  --color-syntax-number: var(--tn-day-orange);
+  --color-syntax-keyword: var(--tn-day-purple);
+  --color-syntax-comment: var(--tn-day-text-muted);
+  --color-syntax-punctuation: #515670;
+  --color-syntax-property: var(--tn-day-cyan);
+  --color-syntax-variable: var(--tn-day-text);
+  --color-syntax-md-heading: var(--tn-day-accent);
+  --color-syntax-md-link: var(--tn-day-cyan);
+  --color-syntax-md-emphasis: var(--tn-day-warning);
+  --color-syntax-md-strong: var(--tn-day-text);
+  --color-syntax-md-code: #485e30;
+  --color-syntax-md-quote: var(--tn-day-text-muted);
+  --color-syntax-md-meta: #515670;
+  --color-syntax-md-marker: var(--tn-day-text-muted);
+
+  --background: var(--color-bg);
+  --surface: var(--color-surface-1);
+  --surface-hover: var(--color-surface-2);
+  --border: var(--color-border);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-muted);
+  --text-muted: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --btn-primary: var(--tn-day-accent-btn);
+
+  --shadow-sm: 0 1px 2px rgba(52, 59, 88, 0.08);
+  --shadow-md: 0 4px 16px rgba(52, 59, 88, 0.12);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+
+  --scrollbar-track: color-mix(in srgb, var(--tn-day-surface-2) 60%, transparent);
+  --scrollbar-thumb: var(--tn-day-border);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--tn-day-accent) 45%, var(--tn-day-border));
+}

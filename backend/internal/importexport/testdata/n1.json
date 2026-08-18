@@ -1,0 +1,40 @@
+{
+  "info": {
+    "name": "Acme API - Staging",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://api.example.com" },
+    { "key": "apiKey", "value": "demo-key" },
+    { "key": "env", "value": "staging" },
+    { "key": "tenantId", "value": "acme" },
+    { "key": "version", "value": "v1" }
+  ],
+  "item": [
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{baseUrl}}/users"
+          }
+        },
+        {
+          "name": "Create user",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Ada\"}"
+            },
+            "url": "{{baseUrl}}/users"
+          }
+        }
+      ]
+    }
+  ]
+}

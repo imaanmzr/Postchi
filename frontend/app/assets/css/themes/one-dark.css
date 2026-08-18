@@ -1,0 +1,84 @@
+/* One Dark — Atom default style (navarasu/onedark.nvim) */
+[data-theme="one-dark"] {
+  --od-black: #181a1f;
+  --od-bg: #282c34;
+  --od-surface-1: #21252b;
+  --od-surface-2: #31353f;
+  --od-surface-3: #393f4a;
+  --od-border: #3b3f4c;
+  --od-text: #abb2bf;
+  --od-text-muted: #848b98;
+  --od-accent: #61afef;
+  --od-accent-btn: #528bcc;
+  --od-danger: #e86671;
+  --od-success: #98c379;
+  --od-warning: #e5c07b;
+  --od-orange: #d19a66;
+  --od-purple: #c678dd;
+  --od-green: #98c379;
+  --od-cyan: #56b6c2;
+  --od-red: #e86671;
+  --od-input-bg: #282c34;
+
+  --color-bg: var(--od-bg);
+  --color-surface-1: var(--od-surface-1);
+  --color-surface-2: var(--od-surface-2);
+  --color-grid: var(--od-surface-3);
+  --color-border: var(--od-border);
+  --color-text: var(--od-text);
+  --color-text-muted: var(--od-text-muted);
+  --color-accent: var(--od-accent);
+  --color-accent-muted: color-mix(in srgb, var(--od-accent) 22%, transparent);
+  --color-danger: var(--od-danger);
+  --color-success: var(--od-success);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-input-bg: var(--od-input-bg);
+  --color-on-accent: #ffffff;
+  --color-btn-primary-hover: #4a9de8;
+
+  --method-get: var(--od-green);
+  --method-post: var(--od-purple);
+  --method-put: var(--od-warning);
+  --method-patch: var(--od-orange);
+  --method-delete: var(--od-danger);
+
+  --color-editor-bg: var(--od-bg);
+  --color-editor-gutter: var(--od-bg);
+  --color-editor-text: var(--od-text);
+  --color-editor-caret: var(--od-accent);
+  --color-editor-active-line: var(--od-surface-2);
+  --color-editor-selection: color-mix(in srgb, var(--od-accent) 28%, transparent);
+  --color-syntax-string: var(--od-green);
+  --color-syntax-number: var(--od-orange);
+  --color-syntax-keyword: var(--od-purple);
+  --color-syntax-comment: var(--od-text-muted);
+  --color-syntax-punctuation: #5c6370;
+  --color-syntax-property: var(--od-cyan);
+  --color-syntax-variable: var(--od-red);
+  --color-syntax-md-heading: var(--od-accent);
+  --color-syntax-md-link: var(--od-cyan);
+  --color-syntax-md-emphasis: var(--od-warning);
+  --color-syntax-md-strong: var(--od-text);
+  --color-syntax-md-code: var(--od-green);
+  --color-syntax-md-quote: var(--od-text-muted);
+  --color-syntax-md-meta: #5c6370;
+  --color-syntax-md-marker: var(--od-text-muted);
+
+  --background: var(--color-bg);
+  --surface: var(--color-surface-1);
+  --surface-hover: var(--color-surface-2);
+  --border: var(--color-border);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-muted);
+  --text-muted: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --btn-primary: var(--od-accent-btn);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+
+  --scrollbar-track: color-mix(in srgb, var(--od-surface-1) 60%, transparent);
+  --scrollbar-thumb: var(--od-border);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--od-accent) 50%, var(--od-border));
+}

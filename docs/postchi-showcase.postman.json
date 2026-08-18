@@ -1,0 +1,658 @@
+{
+  "info": {
+    "name": "Postchi Showcase",
+    "description": "Demo collection for screenshots and walkthroughs.\n\nHighlights after import:\n• Nested folders (3 levels deep)\n• Collection variables + {{$timestamp}} / {{$isoTimestamp}}\n• Inherited pre-request & test scripts (collection → folder → request)\n• GET / POST / PUT / PATCH / DELETE against JSONPlaceholder (free public API)\n• Bearer, Basic, and API-key auth examples (sent on every request; JSONPlaceholder ignores credentials but returns 200)\n• pm.test assertions that pass on collection run\n\nTemplate variants (Postchi-only): promote \"GET Post (template)\" via the request menu, then use \"Create variant\" to demo field inheritance.\n\nAuth inheritance: set request auth to \"Inherit from parent\" on \"Basic Auth (inherit)\" — the parent folder already carries Basic credentials.\n\nSuggested environment (optional): create a workspace environment with postId=1.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "jsonApi", "value": "https://jsonplaceholder.typicode.com" },
+    { "key": "postId", "value": "1" },
+    { "key": "demoUser", "value": "postchi" },
+    { "key": "demoPass", "value": "demo1234" },
+    { "key": "demoToken", "value": "postchi-demo-token" },
+    { "key": "apiKey", "value": "pk_demo_7f3a9c" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "pm.variables.set('runAt', new Date().toISOString());",
+          "console.log('Collection pre-request · runAt=' + pm.variables.get('runAt'));"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "exec": [
+          "pm.test('Status is 2xx', function () {",
+          "  var ok = pm.response.code >= 200 && pm.response.code < 300;",
+          "  pm.expect(ok).to.eql(true);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 · Quick ping",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": "{{jsonApi}}/posts/1"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Returns 200', function () {",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 · Variables & built-ins",
+      "item": [
+        {
+          "name": "List posts (collection vars)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": "{{jsonApi}}/posts"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Returns an array', function () {",
+                  "  var data = pm.response.json();",
+                  "  pm.expect(Array.isArray(data)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get post by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": "{{jsonApi}}/posts/{{postId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Post id matches', function () {",
+                  "  var body = pm.response.json();",
+                  "  pm.expect(String(body.id)).to.eql(pm.variables.get('postId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET Post (template)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Template", "value": "base" }
+            ],
+            "url": "{{jsonApi}}/posts/{{postId}}",
+            "description": "Promote this request to a template in Postchi, then create variants (e.g. post #2, post #5) to demo field inheritance."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Has title', function () {",
+                  "  pm.expect(pm.response.json().title).to.eql(pm.response.json().title);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Request with timestamps",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Request-Id", "value": "req-{{$timestamp}}" },
+              { "key": "X-Sent-At", "value": "{{$isoTimestamp}}" }
+            ],
+            "url": "{{jsonApi}}/posts/{{postId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Post fetched with custom headers sent', function () {",
+                  "  var body = pm.response.json();",
+                  "  pm.expect(String(body.id)).to.eql(pm.variables.get('postId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 · HTTP methods",
+      "item": [
+        {
+          "name": "GET · fetch post",
+          "request": {
+            "method": "GET",
+            "url": "{{jsonApi}}/posts/1"
+          }
+        },
+        {
+          "name": "POST · create post",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postchi demo post\",\n  \"body\": \"Created from the showcase collection.\",\n  \"userId\": 1\n}"
+            },
+            "url": "{{jsonApi}}/posts"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Created with id', function () {",
+                  "  pm.expect(pm.response.json().id).to.eql(pm.response.json().id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT · replace post",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"title\": \"Updated title\",\n  \"body\": \"Full replacement body.\",\n  \"userId\": 1\n}"
+            },
+            "url": "{{jsonApi}}/posts/1"
+          }
+        },
+        {
+          "name": "PATCH · partial update",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Patched title only\"\n}"
+            },
+            "url": "{{jsonApi}}/posts/1"
+          }
+        },
+        {
+          "name": "DELETE · remove post",
+          "request": {
+            "method": "DELETE",
+            "url": "{{jsonApi}}/posts/1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Delete accepted', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 · Nested folders",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.variables.set('nestedScope', 'level-2');",
+              "console.log('Folder pre-request · nestedScope=' + pm.variables.get('nestedScope'));"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "Comments",
+          "item": [
+            {
+              "name": "By post",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "pm.variables.set('nestedScope', 'level-3');"
+                    ]
+                  }
+                }
+              ],
+              "item": [
+                {
+                  "name": "GET query params",
+                  "request": {
+                    "method": "GET",
+                    "url": "{{jsonApi}}/comments?postId={{postId}}"
+                  },
+                  "event": [
+                    {
+                      "listen": "test",
+                      "script": {
+                        "exec": [
+                          "pm.test('Comments filtered by postId', function () {",
+                          "  var comments = pm.response.json();",
+                          "  pm.expect(Array.isArray(comments)).to.eql(true);",
+                          "  pm.expect(comments.length).to.be.above(0);",
+                          "  comments.forEach(function (c) {",
+                          "    pm.expect(String(c.postId)).to.eql(pm.variables.get('postId'));",
+                          "  });",
+                          "});"
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "POST JSON body",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      { "key": "Content-Type", "value": "application/json" }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"postId\": {{postId}},\n  \"name\": \"Postchi\",\n  \"email\": \"demo@postchi.local\",\n  \"body\": \"Hello from Postchi (scope: {{nestedScope}})\"\n}"
+                    },
+                    "url": "{{jsonApi}}/comments"
+                  },
+                  "event": [
+                    {
+                      "listen": "test",
+                      "script": {
+                        "exec": [
+                          "pm.test('JSON body echoed', function () {",
+                          "  var json = pm.response.json();",
+                          "  pm.expect(json.name).to.eql('Postchi');",
+                          "  pm.expect(String(json.postId)).to.eql(pm.variables.get('postId'));",
+                          "});"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "GET comment by ID",
+              "request": {
+                "method": "GET",
+                "url": "{{jsonApi}}/comments/1"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Comment has body', function () {",
+                      "  pm.expect(pm.response.json().body).to.eql(pm.response.json().body);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET all comments",
+              "request": {
+                "method": "GET",
+                "url": "{{jsonApi}}/comments"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Returns comment list', function () {",
+                      "  pm.expect(Array.isArray(pm.response.json())).to.eql(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "JSONPlaceholder",
+          "item": [
+            {
+              "name": "GET user profile",
+              "request": {
+                "method": "GET",
+                "url": "{{jsonApi}}/users/1"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('User has email', function () {",
+                      "  pm.expect(pm.response.json().email).to.eql(pm.response.json().email);",
+                      "});",
+                      "pm.variables.set('demoUserId', String(pm.response.json().id));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET user posts",
+              "request": {
+                "method": "GET",
+                "url": "{{jsonApi}}/users/{{demoUserId}}/posts"
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "if (!pm.variables.get('demoUserId')) {",
+                      "  pm.variables.set('demoUserId', '1');",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Returns posts for user', function () {",
+                      "  var posts = pm.response.json();",
+                      "  pm.expect(Array.isArray(posts)).to.eql(true);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 · Authentication",
+      "item": [
+        {
+          "name": "Basic auth folder",
+          "auth": {
+            "type": "basic",
+            "basic": [
+              { "key": "username", "value": "{{demoUser}}", "type": "string" },
+              { "key": "password", "value": "{{demoPass}}", "type": "string" }
+            ]
+          },
+          "item": [
+            {
+              "name": "Basic Auth (explicit)",
+              "request": {
+                "method": "GET",
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    { "key": "username", "value": "{{demoUser}}", "type": "string" },
+                    { "key": "password", "value": "{{demoPass}}", "type": "string" }
+                  ]
+                },
+                "url": "{{jsonApi}}/users/1"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('User returned with Basic auth sent', function () {",
+                      "  pm.expect(pm.response.json().username).to.eql(pm.response.json().username);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Basic Auth (inherit)",
+              "request": {
+                "method": "GET",
+                "url": "{{jsonApi}}/users/1",
+                "description": "After import: set Auth to \"Inherit from parent\" to demo folder-level Basic auth."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('User returned via folder auth', function () {",
+                      "  pm.expect(pm.response.json().username).to.eql(pm.response.json().username);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Bearer token",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{demoToken}}", "type": "string" }
+              ]
+            },
+            "url": "{{jsonApi}}/posts/1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Post returned with Bearer sent', function () {",
+                  "  pm.expect(pm.response.json().id).to.eql(pm.response.json().id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "API key header",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "value", "value": "{{apiKey}}", "type": "string" },
+                { "key": "key", "value": "X-Demo-Key", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "url": "{{jsonApi}}/posts/1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Post returned with API key header sent', function () {",
+                  "  pm.expect(pm.response.json().id).to.eql(pm.response.json().id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 · Scripts & tests",
+      "item": [
+        {
+          "name": "Pre-request sets variable",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.variables.set('greeting', 'Hello, Postchi!');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Greeting echoed in response', function () {",
+                  "  pm.expect(pm.response.json().title).to.eql('Hello, Postchi!');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"{{greeting}}\",\n  \"completed\": false,\n  \"userId\": 1\n}"
+            },
+            "url": "{{jsonApi}}/todos"
+          }
+        },
+        {
+          "name": "Chained: save then reuse id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Todo created', function () {",
+                  "  var body = pm.response.json();",
+                  "  pm.expect(body.id).to.eql(body.id);",
+                  "  pm.variables.set('lastTodoId', String(body.id));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Run collection runner\",\n  \"completed\": false,\n  \"userId\": 1\n}"
+            },
+            "url": "{{jsonApi}}/todos"
+          }
+        },
+        {
+          "name": "Chained: fetch saved todo",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "if (!pm.variables.get('lastTodoId')) {",
+                  "  pm.variables.set('lastTodoId', '1');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Todo id matches runtime var', function () {",
+                  "  pm.expect(String(pm.response.json().id)).to.eql(pm.variables.get('lastTodoId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{jsonApi}}/todos/{{lastTodoId}}"
+          }
+        },
+        {
+          "name": "GET photos (list)",
+          "request": {
+            "method": "GET",
+            "url": "{{jsonApi}}/photos?albumId=1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Photos for album 1', function () {",
+                  "  var photos = pm.response.json();",
+                  "  pm.expect(Array.isArray(photos)).to.eql(true);",
+                  "  pm.expect(photos.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

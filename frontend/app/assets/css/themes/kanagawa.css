@@ -1,0 +1,84 @@
+/* Kanagawa Wave — dark variant (rebelot/kanagawa.nvim) */
+[data-theme="kanagawa"] {
+  --kw-bg: #1f1f28;
+  --kw-surface-1: #16161d;
+  --kw-surface-2: #2a2a37;
+  --kw-surface-3: #363646;
+  --kw-border: #54546d;
+  --kw-text: #dcd7ba;
+  --kw-text-muted: #727169;
+  --kw-accent: #7e9cd8;
+  --kw-accent-btn: #658594;
+  --kw-danger: #e82424;
+  --kw-success: #76946a;
+  --kw-warning: #ff9e3b;
+  --kw-orange: #ffa066;
+  --kw-purple: #957fb8;
+  --kw-green: #98bb6c;
+  --kw-cyan: #7fb4ca;
+  --kw-yellow: #e6c384;
+  --kw-pink: #d27e99;
+  --kw-input-bg: #1f1f28;
+
+  --color-bg: var(--kw-bg);
+  --color-surface-1: var(--kw-surface-1);
+  --color-surface-2: var(--kw-surface-2);
+  --color-grid: var(--kw-surface-3);
+  --color-border: var(--kw-border);
+  --color-text: var(--kw-text);
+  --color-text-muted: var(--kw-text-muted);
+  --color-accent: var(--kw-accent);
+  --color-accent-muted: color-mix(in srgb, var(--kw-accent) 22%, transparent);
+  --color-danger: var(--kw-danger);
+  --color-success: var(--kw-success);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-input-bg: var(--kw-input-bg);
+  --color-on-accent: #16161d;
+  --color-btn-primary-hover: #7aa89f;
+
+  --method-get: var(--kw-green);
+  --method-post: var(--kw-purple);
+  --method-put: var(--kw-warning);
+  --method-patch: var(--kw-orange);
+  --method-delete: var(--kw-danger);
+
+  --color-editor-bg: var(--kw-bg);
+  --color-editor-gutter: var(--kw-bg);
+  --color-editor-text: var(--kw-text);
+  --color-editor-caret: var(--kw-yellow);
+  --color-editor-active-line: var(--kw-surface-3);
+  --color-editor-selection: color-mix(in srgb, var(--kw-purple) 28%, transparent);
+  --color-syntax-string: var(--kw-green);
+  --color-syntax-number: var(--kw-pink);
+  --color-syntax-keyword: var(--kw-purple);
+  --color-syntax-comment: var(--kw-text-muted);
+  --color-syntax-punctuation: #9cabca;
+  --color-syntax-property: var(--kw-cyan);
+  --color-syntax-variable: var(--kw-yellow);
+  --color-syntax-md-heading: var(--kw-accent);
+  --color-syntax-md-link: var(--kw-cyan);
+  --color-syntax-md-emphasis: var(--kw-warning);
+  --color-syntax-md-strong: var(--kw-text);
+  --color-syntax-md-code: var(--kw-green);
+  --color-syntax-md-quote: var(--kw-text-muted);
+  --color-syntax-md-meta: #9cabca;
+  --color-syntax-md-marker: var(--kw-text-muted);
+
+  --background: var(--color-bg);
+  --surface: var(--color-surface-1);
+  --surface-hover: var(--color-surface-2);
+  --border: var(--color-border);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-muted);
+  --text-muted: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --btn-primary: var(--kw-accent-btn);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+
+  --scrollbar-track: color-mix(in srgb, var(--kw-surface-1) 60%, transparent);
+  --scrollbar-thumb: var(--kw-border);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--kw-accent) 50%, var(--kw-border));
+}

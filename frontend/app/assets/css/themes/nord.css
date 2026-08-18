@@ -1,0 +1,71 @@
+/* Nord — original Postchi palette */
+[data-theme="nord"] {
+  --nord0: #2e3440;
+  --nord1: #3b4252;
+  --nord2: #434c5e;
+  --nord3: #4c566a;
+  --nord4: #d8dee9;
+  --nord6: #eceff4;
+  --nord8: #88c0d0;
+  --nord9: #81a1c1;
+  --nord10: #5e81ac;
+  --nord11: #bf616a;
+  --nord12: #d08770;
+  --nord13: #ebcb8b;
+  --nord14: #a3be8c;
+  --nord15: #b48ead;
+
+  --color-bg: var(--nord0);
+  --color-surface-1: var(--nord1);
+  --color-surface-2: var(--nord2);
+  --color-grid: var(--nord2);
+  --color-border: var(--nord3);
+  --color-text: var(--nord6);
+  --color-text-muted: var(--nord4);
+  --color-accent: var(--nord8);
+  --color-accent-muted: color-mix(in srgb, var(--nord8) 22%, transparent);
+  --color-danger: var(--nord11);
+  --color-success: var(--nord14);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-input-bg: var(--nord0);
+  --color-on-accent: var(--nord6);
+  --color-btn-primary-hover: var(--nord9);
+
+  --method-get: var(--nord14);
+  --method-post: var(--nord15);
+  --method-put: var(--nord13);
+  --method-patch: var(--nord12);
+  --method-delete: var(--nord11);
+
+  --color-editor-bg: #2a3040;
+  --color-editor-gutter: #2a3040;
+  --color-editor-text: var(--nord6);
+  --color-editor-caret: var(--nord8);
+  --color-editor-active-line: var(--nord2);
+  --color-editor-selection: color-mix(in srgb, var(--nord13) 32%, transparent);
+  --color-syntax-string: var(--nord13);
+  --color-syntax-number: var(--nord15);
+  --color-syntax-keyword: var(--nord8);
+  --color-syntax-comment: var(--nord3);
+  --color-syntax-punctuation: var(--nord4);
+  --color-syntax-property: var(--nord8);
+  --color-syntax-variable: var(--nord6);
+
+  --background: var(--color-bg);
+  --surface: var(--color-surface-1);
+  --surface-hover: var(--color-surface-2);
+  --border: var(--color-border);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-muted);
+  --text-muted: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --btn-primary: var(--nord10);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+
+  --scrollbar-track: color-mix(in srgb, var(--nord1) 60%, transparent);
+  --scrollbar-thumb: var(--nord3);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--nord8) 55%, var(--nord3));
+}

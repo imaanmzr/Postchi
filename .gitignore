@@ -1,0 +1,11 @@
+.env
+*.exe
+*.test
+backend/tmp/
+frontend/node_modules/
+frontend/.nuxt/
+frontend/.output/
+frontend/dist/
+.DS_Store
+.idea/
+.vscode/

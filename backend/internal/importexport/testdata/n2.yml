@@ -1,0 +1,47 @@
+opencollection: "1.0.0"
+
+info:
+  name: Acme API - Staging
+
+request:
+  variables:
+    - name: baseUrl
+      value: https://api.example.com
+    - name: apiKey
+      value: demo-key
+    - name: env
+      value: staging
+    - name: tenantId
+      value: acme
+    - name: version
+      value: v1
+
+items:
+  - info:
+      name: Users
+      type: folder
+      seq: 1
+    items:
+      - info:
+          name: List users
+          type: http
+          seq: 1
+        http:
+          method: GET
+          url: "{{baseUrl}}/users"
+          headers:
+            - name: Accept
+              value: application/json
+      - info:
+          name: Create user
+          type: http
+          seq: 2
+        http:
+          method: POST
+          url: "{{baseUrl}}/users"
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: '{"name":"Ada"}'

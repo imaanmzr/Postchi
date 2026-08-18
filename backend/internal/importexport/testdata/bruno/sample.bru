@@ -1,0 +1,28 @@
+meta {
+  name: Get Users
+  type: http
+}
+
+get {
+  url: {{baseUrl}}/users
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  baseUrl: https://api.example.com
+}
+
+script:pre-request {
+  console.log('pre');
+}
+
+tests {
+  test('ok', () => {});
+}

@@ -1,0 +1,12 @@
+meta {
+  name: Sample Collection
+  type: collection
+}
+
+vars:pre-request {
+  token: secret
+}
+
+vars:post-response {
+  userId: res.body.id
+}

@@ -1,0 +1,88 @@
+/* Tokyo Night — standard variant (tokyo-night-vscode-theme) */
+:root,
+[data-theme="tokyo-night"] {
+  --tn-bg: #1a1b26;
+  --tn-surface-1: #16161e;
+  --tn-surface-2: #202330;
+  --tn-surface-3: #1e202e;
+  --tn-border: #101014;
+  --tn-border-muted: #292e42;
+  --tn-text: #a9b1d6;
+  --tn-text-muted: #787c99;
+  --tn-accent: #7aa2f7;
+  --tn-accent-btn: #3d59a1;
+  --tn-danger: #f7768e;
+  --tn-success: #73daca;
+  --tn-warning: #e0af68;
+  --tn-orange: #ff9e64;
+  --tn-purple: #bb9af7;
+  --tn-green: #9ece6a;
+  --tn-cyan: #7dcfff;
+  --tn-comment: #51597d;
+  --tn-punctuation: #9aa5ce;
+  --tn-property: #73daca;
+  --tn-variable: #c0caf5;
+  --tn-input-bg: #14141b;
+
+  --color-bg: var(--tn-bg);
+  --color-surface-1: var(--tn-surface-1);
+  --color-surface-2: var(--tn-surface-2);
+  --color-grid: var(--tn-surface-3);
+  --color-border: var(--tn-border-muted);
+  --color-text: var(--tn-text);
+  --color-text-muted: var(--tn-text-muted);
+  --color-accent: var(--tn-accent);
+  --color-accent-muted: color-mix(in srgb, var(--tn-accent) 22%, transparent);
+  --color-danger: var(--tn-danger);
+  --color-success: var(--tn-success);
+  --color-overlay: rgba(0, 0, 0, 0.65);
+  --color-input-bg: var(--tn-input-bg);
+  --color-on-accent: #ffffff;
+  --color-btn-primary-hover: #668ac4;
+
+  --method-get: var(--tn-green);
+  --method-post: var(--tn-purple);
+  --method-put: var(--tn-warning);
+  --method-patch: var(--tn-orange);
+  --method-delete: var(--tn-danger);
+
+  --color-editor-bg: var(--tn-bg);
+  --color-editor-gutter: var(--tn-bg);
+  --color-editor-text: #c0caf5;
+  --color-editor-caret: var(--tn-variable);
+  --color-editor-active-line: var(--tn-surface-3);
+  --color-editor-selection: #515c7e4d;
+  --color-syntax-string: #b9f27c;
+  --color-syntax-number: var(--tn-orange);
+  --color-syntax-keyword: #c4a7e7;
+  --color-syntax-comment: #737aa2;
+  --color-syntax-punctuation: #bac2de;
+  --color-syntax-property: #8eeddb;
+  --color-syntax-variable: #d5d8eb;
+  --color-syntax-md-heading: var(--tn-accent);
+  --color-syntax-md-link: var(--tn-cyan);
+  --color-syntax-md-emphasis: var(--tn-warning);
+  --color-syntax-md-strong: #d5d8eb;
+  --color-syntax-md-code: #b9f27c;
+  --color-syntax-md-quote: #a9b1d6;
+  --color-syntax-md-meta: #9aa5ce;
+  --color-syntax-md-marker: #737aa2;
+
+  --background: var(--color-bg);
+  --surface: var(--color-surface-1);
+  --surface-hover: var(--color-surface-2);
+  --border: var(--color-border);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-muted);
+  --text-muted: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --btn-primary: var(--tn-accent-btn);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  --scrollbar-track: color-mix(in srgb, var(--tn-surface-1) 60%, transparent);
+  --scrollbar-thumb: var(--tn-border-muted);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--tn-accent) 55%, var(--tn-border-muted));
+}

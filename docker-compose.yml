@@ -1,0 +1,71 @@
+services:
+  database:
+    image: postgres:16
+    container_name: postchi-db
+    environment:
+      POSTGRES_USER: postchi
+      POSTGRES_PASSWORD: postchi
+      POSTGRES_DB: postchi
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postchi -d postchi"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: postchi-mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: postchi-api
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DATABASE_URL: postgres://postchi:postchi@database:5432/postchi?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-postchi-dev-encryption-key-32b!!}
+      HTTP_PORT: "8080"
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      MIGRATIONS_PATH: file:///migrations
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-true}
+      DB_READY_TIMEOUT: ${DB_READY_TIMEOUT:-60s}
+      STATIC_FILES_PATH: /app/static
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:3000}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-postchi@localhost}
+      INVITE_TTL_HOURS: ${INVITE_TTL_HOURS:-168}
+    ports:
+      - "8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        NUXT_PUBLIC_API_URL: ${NUXT_PUBLIC_API_URL:-http://localhost:8080}
+    container_name: postchi-web
+    environment:
+      NUXT_PUBLIC_API_URL: ${NUXT_PUBLIC_API_URL:-http://localhost:8080}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pg_data:

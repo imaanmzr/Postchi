@@ -1,0 +1,83 @@
+/* GitHub Light Default — primer/github-vscode-theme */
+[data-theme="github-light"] {
+  --gh-bg: #ffffff;
+  --gh-surface-1: #f6f8fa;
+  --gh-surface-2: #eaeef2;
+  --gh-surface-3: #d0d7de;
+  --gh-border: #d0d7de;
+  --gh-text: #1f2328;
+  --gh-text-muted: #656d76;
+  --gh-accent: #0969da;
+  --gh-accent-btn: #0969da;
+  --gh-danger: #cf222e;
+  --gh-success: #1a7f37;
+  --gh-warning: #9a6700;
+  --gh-orange: #bc4c00;
+  --gh-purple: #8250df;
+  --gh-green: #116329;
+  --gh-blue: #0550ae;
+  --gh-red: #cf222e;
+  --gh-input-bg: #ffffff;
+
+  --color-bg: var(--gh-bg);
+  --color-surface-1: var(--gh-surface-1);
+  --color-surface-2: var(--gh-surface-2);
+  --color-grid: var(--gh-surface-1);
+  --color-border: var(--gh-border);
+  --color-text: var(--gh-text);
+  --color-text-muted: var(--gh-text-muted);
+  --color-accent: var(--gh-accent);
+  --color-accent-muted: color-mix(in srgb, var(--gh-accent) 16%, transparent);
+  --color-danger: var(--gh-danger);
+  --color-success: var(--gh-success);
+  --color-overlay: rgba(31, 35, 40, 0.35);
+  --color-input-bg: var(--gh-input-bg);
+  --color-on-accent: #ffffff;
+  --color-btn-primary-hover: #0550ae;
+
+  --method-get: var(--gh-green);
+  --method-post: var(--gh-purple);
+  --method-put: var(--gh-warning);
+  --method-patch: var(--gh-orange);
+  --method-delete: var(--gh-danger);
+
+  --color-editor-bg: var(--gh-bg);
+  --color-editor-gutter: var(--gh-bg);
+  --color-editor-text: var(--gh-text);
+  --color-editor-caret: var(--gh-accent);
+  --color-editor-active-line: var(--gh-surface-1);
+  --color-editor-selection: color-mix(in srgb, var(--gh-accent) 20%, transparent);
+  --color-syntax-string: var(--gh-blue);
+  --color-syntax-number: var(--gh-orange);
+  --color-syntax-keyword: var(--gh-red);
+  --color-syntax-comment: var(--gh-text-muted);
+  --color-syntax-punctuation: #57606a;
+  --color-syntax-property: var(--gh-blue);
+  --color-syntax-variable: var(--gh-orange);
+  --color-syntax-md-heading: var(--gh-accent);
+  --color-syntax-md-link: var(--gh-blue);
+  --color-syntax-md-emphasis: var(--gh-warning);
+  --color-syntax-md-strong: var(--gh-text);
+  --color-syntax-md-code: var(--gh-blue);
+  --color-syntax-md-quote: var(--gh-text-muted);
+  --color-syntax-md-meta: #57606a;
+  --color-syntax-md-marker: var(--gh-text-muted);
+
+  --background: var(--color-bg);
+  --surface: var(--color-surface-1);
+  --surface-hover: var(--color-surface-2);
+  --border: var(--color-border);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-muted);
+  --text-muted: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --btn-primary: var(--gh-accent-btn);
+
+  --shadow-sm: 0 1px 2px rgba(31, 35, 40, 0.08);
+  --shadow-md: 0 4px 16px rgba(31, 35, 40, 0.12);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+
+  --scrollbar-track: color-mix(in srgb, var(--gh-surface-2) 60%, transparent);
+  --scrollbar-thumb: var(--gh-border);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--gh-accent) 40%, var(--gh-border));
+}

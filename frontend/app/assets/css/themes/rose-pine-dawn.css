@@ -1,0 +1,81 @@
+/* Rosé Pine Dawn — light variant (rosepinetheme.com) */
+[data-theme="rose-pine-dawn"] {
+  --rp-base: #faf4ed;
+  --rp-surface-1: #fffaf3;
+  --rp-surface-2: #f2e9e1;
+  --rp-border: #dfdad9;
+  --rp-text: #575279;
+  --rp-text-muted: #9893a5;
+  --rp-subtle: #797593;
+  --rp-accent: #56949f;
+  --rp-accent-btn: #286983;
+  --rp-love: #b4637a;
+  --rp-gold: #ea9d34;
+  --rp-rose: #d7827e;
+  --rp-pine: #286983;
+  --rp-foam: #56949f;
+  --rp-iris: #907aa9;
+  --rp-input-bg: #fffaf3;
+
+  --color-bg: var(--rp-base);
+  --color-surface-1: var(--rp-surface-1);
+  --color-surface-2: var(--rp-surface-2);
+  --color-grid: var(--rp-surface-2);
+  --color-border: var(--rp-border);
+  --color-text: var(--rp-text);
+  --color-text-muted: var(--rp-text-muted);
+  --color-accent: var(--rp-pine);
+  --color-accent-muted: color-mix(in srgb, var(--rp-pine) 16%, transparent);
+  --color-danger: var(--rp-love);
+  --color-success: #56949f;
+  --color-overlay: rgba(87, 82, 121, 0.35);
+  --color-input-bg: var(--rp-input-bg);
+  --color-on-accent: #ffffff;
+  --color-btn-primary-hover: #1f5569;
+
+  --method-get: var(--rp-foam);
+  --method-post: var(--rp-iris);
+  --method-put: var(--rp-gold);
+  --method-patch: var(--rp-rose);
+  --method-delete: var(--rp-love);
+
+  --color-editor-bg: var(--rp-base);
+  --color-editor-gutter: var(--rp-base);
+  --color-editor-text: var(--rp-text);
+  --color-editor-caret: var(--rp-pine);
+  --color-editor-active-line: var(--rp-surface-2);
+  --color-editor-selection: color-mix(in srgb, var(--rp-iris) 22%, transparent);
+  --color-syntax-string: var(--rp-foam);
+  --color-syntax-number: var(--rp-gold);
+  --color-syntax-keyword: var(--rp-iris);
+  --color-syntax-comment: var(--rp-text-muted);
+  --color-syntax-punctuation: var(--rp-subtle);
+  --color-syntax-property: var(--rp-pine);
+  --color-syntax-variable: var(--rp-rose);
+  --color-syntax-md-heading: var(--rp-iris);
+  --color-syntax-md-link: var(--rp-foam);
+  --color-syntax-md-emphasis: var(--rp-gold);
+  --color-syntax-md-strong: var(--rp-text);
+  --color-syntax-md-code: var(--rp-pine);
+  --color-syntax-md-quote: var(--rp-subtle);
+  --color-syntax-md-meta: var(--rp-subtle);
+  --color-syntax-md-marker: var(--rp-text-muted);
+
+  --background: var(--color-bg);
+  --surface: var(--color-surface-1);
+  --surface-hover: var(--color-surface-2);
+  --border: var(--color-border);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-muted);
+  --text-muted: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --btn-primary: var(--rp-accent-btn);
+
+  --shadow-sm: 0 1px 2px rgba(87, 82, 121, 0.08);
+  --shadow-md: 0 4px 16px rgba(87, 82, 121, 0.12);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+
+  --scrollbar-track: color-mix(in srgb, var(--rp-surface-2) 60%, transparent);
+  --scrollbar-thumb: var(--rp-border);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--rp-pine) 40%, var(--rp-border));
+}

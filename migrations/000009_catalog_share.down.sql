@@ -1,0 +1,1 @@
+-- PostgreSQL does not support removing enum values; no-op down migration.

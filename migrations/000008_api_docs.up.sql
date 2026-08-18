@@ -1,0 +1,6 @@
+ALTER TABLE requests
+    ADD COLUMN IF NOT EXISTS api_doc JSONB NOT NULL DEFAULT '{}',
+    ADD COLUMN IF NOT EXISTS docs_overridden BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE api_specs
+    ADD COLUMN IF NOT EXISTS spec_content BYTEA;
