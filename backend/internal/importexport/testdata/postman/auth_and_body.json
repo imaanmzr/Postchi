@@ -1,0 +1,43 @@
+{
+  "info": {
+    "name": "Auth and Body",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Bearer",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            { "key": "token", "value": "{{token}}", "type": "string" }
+          ]
+        },
+        "url": "https://example.com"
+      }
+    },
+    {
+      "name": "Inherit auth",
+      "request": {
+        "method": "GET",
+        "auth": { "type": "inherit" },
+        "url": "https://example.com/inherit"
+      }
+    },
+    {
+      "name": "Form body",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "name", "value": "postchi" },
+            { "key": "disabled", "value": "x", "disabled": true }
+          ]
+        },
+        "url": "https://example.com/form"
+      }
+    }
+  ]
+}

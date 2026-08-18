@@ -41,8 +41,8 @@ func parseWorkspaceID(r *http.Request) (uuid.UUID, error) {
 }
 
 func (h *Handler) writeImportResult(w http.ResponseWriter, result ImportResult) {
-	if result.Total() == 0 {
-		respond.Error(w, http.StatusUnprocessableEntity, "import produced no collections or requests")
+	if result.Requests == 0 {
+		respond.Error(w, http.StatusUnprocessableEntity, "import produced no requests")
 		return
 	}
 	respond.JSON(w, http.StatusCreated, result)

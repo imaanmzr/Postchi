@@ -28,16 +28,7 @@
           <div v-if="error" class="text-sm" style="color: var(--method-delete)">{{ error }}</div>
           <div v-if="success" class="text-sm" style="color: var(--method-get)">{{ success }}</div>
 
-          <div v-if="importVarsStep">
-            <VariableMappingStep
-              :workspace-id="workspaceId"
-              :placeholder-names="importPlaceholders"
-              @done="onVarsMapped"
-              @cancel="importVarsStep = false"
-            />
-          </div>
-
-          <div v-else class="flex gap-2">
+          <div class="flex gap-2">
             <Button variant="primary" :disabled="!file || importing" @click="doImport">
               {{ importing ? 'Importing…' : 'Import' }}
             </Button>
@@ -63,6 +54,11 @@
 
 <script setup lang="ts">
 import { apiUrl } from '~/utils/apiBase'
+import {
+  placeholdersNeedingEnvMapping,
+  requestFieldPlaceholdersFromPostman,
+  type ImportFormat,
+} from '~/utils/importPlaceholders'
 import { extractPlaceholders } from '~/utils/placeholders'
 
 interface ImportResult {
@@ -71,8 +67,6 @@ interface ImportResult {
   requests: number
   environments: number
 }
-
-type ImportFormat = 'auto' | 'bruno' | 'opencollection' | 'postman' | 'openapi'
 
 const props = defineProps<{ workspaceId: string }>()
 defineEmits<{ close: [] }>()
@@ -88,8 +82,6 @@ const exportColId = ref('')
 const importing = ref(false)
 const error = ref('')
 const success = ref('')
-const importVarsStep = ref(false)
-const importPlaceholders = ref<string[]>([])
 
 const formatLabels: Record<Exclude<ImportFormat, 'auto'>, string> = {
   bruno: 'Bruno (.bru / .zip)',
@@ -174,21 +166,6 @@ async function importText(path: string, body: string, contentType: string): Prom
 
 async function doImport() {
   if (!file.value) return
-  const text = fileText.value || (file.value.name.toLowerCase().endsWith('.zip') ? '' : await file.value.text())
-  const placeholders = extractPlaceholders(text)
-  if (placeholders.length && envStore.activeId) {
-    const { missing } = await envStore.resolveVariables(envStore.activeId, placeholders)
-    if (missing.length) {
-      importPlaceholders.value = placeholders
-      importVarsStep.value = true
-      return
-    }
-  }
-  await runImport()
-}
-
-async function onVarsMapped() {
-  importVarsStep.value = false
   await runImport()
 }
 
@@ -219,6 +196,21 @@ async function runImport() {
     const total = (result.collections || 0) + (result.requests || 0) + (result.environments || 0)
     if (total === 0) throw new Error('Import produced no collections or requests')
     success.value = formatResult(result)
+    try {
+      if (envStore.activeId && kind !== 'bruno') {
+        const text = fileText.value || await file.value!.text()
+        const names = kind === 'postman'
+          ? requestFieldPlaceholdersFromPostman(text)
+          : extractPlaceholders(text)
+        const { existing } = await envStore.resolveVariables(envStore.activeId, names)
+        const missing = placeholdersNeedingEnvMapping(kind, text, existing)
+        if (missing.length) {
+          success.value += `. Tip: map ${missing.join(', ')} in your environment if needed.`
+        }
+      }
+    } catch {
+      // optional tip — do not fail a successful import
+    }
     await colStore.fetchCollections(props.workspaceId)
     await colStore.fetchAllRequests(props.workspaceId)
   } catch (e: any) {

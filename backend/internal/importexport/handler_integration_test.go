@@ -81,6 +81,28 @@ func TestHandlerIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("postman showcase import", func(t *testing.T) {
+		data, err := os.ReadFile(filepath.Join("..", "..", "..", "docs", "postchi-showcase.postman.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/import/postman?workspace_id="+wsID.String(), bytes.NewReader(data))
+		req = req.WithContext(context.WithValue(req.Context(), auth.UserIDKey, userID.String()))
+		h.ImportPostman(rr, req)
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+		}
+		var result ImportResult
+		_ = json.Unmarshal(rr.Body.Bytes(), &result)
+		if result.Requests != 24 {
+			t.Fatalf("expected 24 requests, got %+v", result)
+		}
+		if result.Collections != 10 {
+			t.Fatalf("expected 10 collections, got %+v", result)
+		}
+	})
+
 	t.Run("empty postman collection fails", func(t *testing.T) {
 		empty := []byte(`{"info":{"name":"Empty","schema":"https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},"item":[]}`)
 		rr := httptest.NewRecorder()

@@ -2,6 +2,7 @@ package importexport
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/imaanmzr/postchi/backend/internal/importexport/model"
@@ -43,9 +44,21 @@ type postmanHeader struct {
 	Disabled bool   `json:"disabled"`
 }
 
+type postmanFormField struct {
+	Key      string `json:"key"`
+	Value    string `json:"value"`
+	Type     string `json:"type"`
+	Disabled bool   `json:"disabled"`
+}
+
 type postmanBody struct {
-	Mode string `json:"mode"`
-	Raw  string `json:"raw"`
+	Mode       string             `json:"mode"`
+	Raw        string             `json:"raw"`
+	Formdata   []postmanFormField `json:"formdata,omitempty"`
+	Urlencoded []postmanFormField `json:"urlencoded,omitempty"`
+	Options    *struct {
+		Raw map[string]string `json:"raw"`
+	} `json:"options,omitempty"`
 }
 
 type postmanAuth struct {
@@ -117,20 +130,26 @@ func convertItems(items []postmanItem, parent *model.Collection) {
 		if item.Request.Method == "" {
 			continue
 		}
+		url, urlParams := parsePostmanURL(item.Request.URL)
 		req := model.Request{
 			Name:        item.Name,
-			Method:      item.Request.Method,
-			URL:         extractURL(item.Request.URL),
+			Method:      strings.ToUpper(item.Request.Method),
+			URL:         url,
+			Params:      urlParams,
 			Description: item.Request.Description,
 			SortOrder:   i,
-			Auth:        mapPostmanAuth(item.Request.Auth),
 			Body:        request.BodySpec{Mode: "none"},
+		}
+		if item.Request.Auth != nil {
+			req.Auth = mapPostmanAuth(item.Request.Auth)
+		} else {
+			req.Auth = request.AuthSpec{Type: "inherit"}
 		}
 		for _, h := range item.Request.Header {
 			req.Headers = append(req.Headers, request.KVPair{Key: h.Key, Value: h.Value, Enabled: !h.Disabled})
 		}
 		if item.Request.Body != nil {
-			req.Body = request.BodySpec{Mode: item.Request.Body.Mode, Raw: item.Request.Body.Raw, RawLang: "json"}
+			req.Body = mapPostmanBody(item.Request.Body)
 		}
 		for _, ev := range item.Event {
 			script := joinLines(ev.Script.Exec)
@@ -144,21 +163,159 @@ func convertItems(items []postmanItem, parent *model.Collection) {
 	}
 }
 
-func extractURL(u any) string {
+func parsePostmanURL(u any) (string, []request.KVPair) {
 	switch v := u.(type) {
 	case string:
-		return v
+		return v, nil
 	case map[string]any:
-		if raw, ok := v["raw"].(string); ok {
-			return raw
+		if raw, ok := v["raw"].(string); ok && strings.TrimSpace(raw) != "" {
+			return raw, queryParamsFromURLObject(v)
+		}
+		return buildURLFromObject(v), queryParamsFromURLObject(v)
+	}
+	return "", nil
+}
+
+func queryParamsFromURLObject(m map[string]any) []request.KVPair {
+	raw, _ := m["raw"].(string)
+	if raw != "" && strings.Contains(raw, "?") {
+		return nil
+	}
+	q, ok := m["query"].([]any)
+	if !ok {
+		return nil
+	}
+	var params []request.KVPair
+	for _, item := range q {
+		kv, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		key, _ := kv["key"].(string)
+		if key == "" {
+			continue
+		}
+		disabled, _ := kv["disabled"].(bool)
+		val, _ := kv["value"].(string)
+		params = append(params, request.KVPair{Key: key, Value: val, Enabled: !disabled})
+	}
+	return params
+}
+
+func buildURLFromObject(m map[string]any) string {
+	protocol, _ := m["protocol"].(string)
+	host := joinURLSegments(m["host"], ".")
+	path := joinURLSegments(m["path"], "/")
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	port := portString(m["port"])
+	var b strings.Builder
+	if protocol != "" {
+		b.WriteString(protocol)
+		b.WriteString("://")
+	}
+	b.WriteString(host)
+	if port != "" && !strings.Contains(host, ":") {
+		b.WriteString(":")
+		b.WriteString(port)
+	}
+	b.WriteString(path)
+	return b.String()
+}
+
+func portString(v any) string {
+	switch p := v.(type) {
+	case string:
+		return strings.TrimSpace(p)
+	case float64:
+		if p > 0 {
+			return fmt.Sprintf("%d", int(p))
+		}
+	case json.Number:
+		if s := strings.TrimSpace(p.String()); s != "" && s != "0" {
+			return s
 		}
 	}
 	return ""
 }
 
+func joinURLSegments(v any, sep string) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case []any:
+		parts := make([]string, 0, len(t))
+		for _, p := range t {
+			if s, ok := p.(string); ok && s != "" {
+				parts = append(parts, s)
+			}
+		}
+		return strings.Join(parts, sep)
+	case []string:
+		return strings.Join(t, sep)
+	}
+	return ""
+}
+
+func mapPostmanBody(b *postmanBody) request.BodySpec {
+	if b == nil {
+		return request.BodySpec{Mode: "none"}
+	}
+	switch b.Mode {
+	case "raw", "json", "xml", "html", "javascript", "text":
+		lang := b.Mode
+		if lang == "raw" && b.Options != nil {
+			if l, ok := b.Options.Raw["language"]; ok && l != "" {
+				lang = l
+			} else {
+				lang = "json"
+			}
+		}
+		if lang == "raw" {
+			lang = "json"
+		}
+		return request.BodySpec{Mode: "raw", Raw: b.Raw, RawLang: lang}
+	case "formdata":
+		return request.BodySpec{Mode: "form-data", FormData: mapPostmanFormFields(b.Formdata)}
+	case "urlencoded":
+		return request.BodySpec{Mode: "urlencoded", URLEncoded: mapPostmanKVPairs(b.Urlencoded)}
+	case "graphql":
+		return request.BodySpec{Mode: "raw", Raw: b.Raw, RawLang: "json"}
+	default:
+		if b.Raw != "" {
+			return request.BodySpec{Mode: "raw", Raw: b.Raw, RawLang: "json"}
+		}
+		return request.BodySpec{Mode: "none"}
+	}
+}
+
+func mapPostmanKVPairs(fields []postmanFormField) []request.KVPair {
+	out := make([]request.KVPair, 0, len(fields))
+	for _, f := range fields {
+		out = append(out, request.KVPair{
+			Key: f.Key, Value: f.Value, Enabled: !f.Disabled,
+		})
+	}
+	return out
+}
+
+func mapPostmanFormFields(fields []postmanFormField) []request.FormField {
+	out := make([]request.FormField, 0, len(fields))
+	for _, f := range fields {
+		out = append(out, request.FormField{
+			Key: f.Key, Value: f.Value, Enabled: !f.Disabled, Type: f.Type,
+		})
+	}
+	return out
+}
+
 func mapPostmanAuth(a *postmanAuth) request.AuthSpec {
 	if a == nil || a.Type == "" || a.Type == "noauth" {
 		return request.AuthSpec{Type: "none"}
+	}
+	if a.Type == "inherit" {
+		return request.AuthSpec{Type: "inherit"}
 	}
 	out := request.AuthSpec{Type: a.Type, Config: map[string]any{}}
 	switch a.Type {

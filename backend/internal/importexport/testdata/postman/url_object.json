@@ -1,0 +1,36 @@
+{
+  "info": {
+    "name": "URL Object Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Built URL",
+      "request": {
+        "method": "GET",
+        "url": {
+          "protocol": "https",
+          "host": ["api", "example", "com"],
+          "port": "443",
+          "path": ["v1", "users"],
+          "query": [
+            { "key": "limit", "value": "10" },
+            { "key": "skip", "value": "0", "disabled": true }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Raw URL with query object",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "https://api.example.com/search?q=hello",
+          "query": [
+            { "key": "extra", "value": "ignored" }
+          ]
+        }
+      }
+    }
+  ]
+}
