@@ -2,6 +2,7 @@
   <div class="min-h-screen app-bg p-6 max-w-4xl mx-auto">
     <div class="flex items-center justify-between mb-8 gap-4">
       <div>
+        <PostchiLogo :height="26" class="mb-3" aria-hidden="true" />
         <h1 class="text-2xl font-bold tracking-tight">Workspaces</h1>
         <p class="text-sm mt-1 text-muted">
           Signed in as <span class="font-medium">{{ auth.user?.email }}</span>

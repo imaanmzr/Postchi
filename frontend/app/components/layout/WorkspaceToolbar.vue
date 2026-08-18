@@ -3,6 +3,10 @@
     class="flex items-center gap-2 px-4 h-12 shrink-0 border-b"
     style="background: var(--color-surface-1); border-color: var(--color-border); height: var(--toolbar-height)"
   >
+    <PostchiLogo variant="mark" :height="16" class="text-muted" title="Postchi" />
+
+    <div class="h-4 w-px shrink-0" style="background: var(--color-border)" />
+
     <NuxtLink
       to="/workspaces"
       class="inline-flex items-center gap-1.5 text-xs font-medium tracking-tight text-muted hover:text-default transition shrink-0"

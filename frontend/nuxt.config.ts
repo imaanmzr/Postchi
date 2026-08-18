@@ -9,6 +9,29 @@ export default defineNuxtConfig({
   telemetry: false,
   devtools: { enabled: true },
   css: ['~/assets/css/tailwind.css'],
+  app: {
+    head: {
+      title: 'Postchi',
+      titleTemplate: '%s · Postchi',
+      meta: [
+        { name: 'description', content: 'Self-hosted API client.' },
+        { name: 'theme-color', content: '#1a1b26' },
+        { property: 'og:title', content: 'Postchi' },
+        { property: 'og:description', content: 'Self-hosted API client.' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:image', content: '/brand/og-image.png' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+      ],
+      link: [
+        { rel: 'icon', href: '/brand/favicon.ico', sizes: '48x48' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/brand/icon.svg' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/brand/favicon-32.png' },
+        { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/brand/favicon-16.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/brand/apple-touch-icon.png' },
+        { rel: 'manifest', href: '/brand/site.webmanifest' },
+      ],
+    },
+  },
   modules: ['shadcn-nuxt', '@pinia/nuxt'],
   shadcn: {
     prefix: '',

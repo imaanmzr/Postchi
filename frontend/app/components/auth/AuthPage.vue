@@ -4,9 +4,10 @@
       class="w-full max-w-md space-y-6 rounded-lg border p-8 shadow-md"
       style="background: var(--color-surface-1); border-color: var(--color-border)"
     >
-      <div class="text-center">
-        <h1 class="text-2xl font-bold tracking-tight">Postchi</h1>
-        <p class="text-sm mt-1 text-muted">Self-hosted API client</p>
+      <div class="flex flex-col items-center text-center">
+        <h1 class="sr-only">Postchi</h1>
+        <PostchiLogo :height="40" aria-hidden="true" />
+        <p class="text-sm mt-3 text-muted">Self-hosted API client</p>
       </div>
 
       <div class="text-center">
