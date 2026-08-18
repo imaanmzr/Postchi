@@ -41,7 +41,13 @@
               class="browse-entry w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm transition"
               @click="onSelect(entry)"
             >
-              <span v-if="entry.type === 'collection'" class="text-muted shrink-0">📁</span>
+              <Folder
+                v-if="entry.type === 'collection'"
+                class="browse-folder-icon shrink-0"
+                :size="14"
+                :stroke-width="2"
+                aria-hidden="true"
+              />
               <MethodBadge v-else :method="entry.method || 'GET'" />
               <span class="truncate font-medium">{{ entry.label }}</span>
               <span v-if="entry.path" class="truncate text-xs text-muted ml-auto">{{ entry.path }}</span>
@@ -69,6 +75,7 @@
 </template>
 
 <script setup lang="ts">
+import { Folder } from 'lucide-vue-next'
 import type { Collection, RequestItem } from '~/stores/collections'
 import { createFolderAtTarget, createRequestAtTarget } from '~/utils/createRequest'
 
@@ -220,5 +227,8 @@ function askDelete(type: string, item: { name: string; id: string }) {
 }
 .browse-entry:hover {
   background: var(--color-surface-2);
+}
+.browse-folder-icon {
+  color: var(--color-accent);
 }
 </style>

@@ -1,16 +1,24 @@
-# Postchi
+<p align="center">
+  <img src="docs/brand/postchilogo.png" alt="Postchi" width="280">
+</p>
 
-**Self-hosted API client for teams.** Run requests, share collections, sync OpenAPI specs, and collaborate in real time. All on your own infrastructure.
+<p align="center">
+  <strong>Self-hosted API client for teams.</strong> Run requests, share collections, sync OpenAPI specs, and collaborate in real time. All on your own infrastructure.
+</p>
 
-Postchi is a multi-user, web-based alternative to Postman and Bruno built for internal teams who want full control over their API tooling, data, and secrets.
+<p align="center">
+  Postchi is a multi-user, web-based alternative to Postman and Bruno built for internal teams who want full control over their API tooling, data, and secrets.
+</p>
 
-![Postchi request builder with JSON tree response viewer](screenshots/preview2.png)
+![Postchi request builder with JSON tree response viewer](screenshots/scrsht-01.png)
 
 ---
 
 ## Table of Contents
 
 - [Features](#features)
+- [Screenshots](#screenshots)
+- [Branding](#branding)
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
@@ -36,11 +44,7 @@ Postchi is a multi-user, web-based alternative to Postman and Bruno built for in
 - **Share links** for read-only access or one-click import into another workspace
 - **Activity feed** per workspace
 
-![Workspace team settings with email invites and member roles](screenshots/preview.png)
-
-![Share request and response dialog](screenshots/preview3.png)
-
-![Shared request snapshot with one-click import into a workspace](screenshots/preview4.png)
+![Workspace settings with Git markdown docs sync and CI automation tokens](screenshots/scrsht-02.png)
 
 ### Request Builder
 
@@ -54,10 +58,6 @@ Postchi is a multi-user, web-based alternative to Postman and Bruno built for in
 - Drag-and-drop reordering in the request tree
 - Variable autocomplete with `{{variable}}` interpolation
 - Built-in placeholders: `$timestamp`, `$isoTimestamp`
-
-![API key authentication request with JSON response](screenshots/preview6.png)
-
-![Generate cURL and other code snippets from saved requests](screenshots/preview5.png)
 
 ### Environments & Variables
 
@@ -76,16 +76,12 @@ Postchi is a multi-user, web-based alternative to Postman and Bruno built for in
 - Generate code snippets (cURL and more) from saved requests
 - Default timeout: 30s | Max response size: 10 MB
 
-![Collection runner with pass/fail report](screenshots/preview8.png)
-
 ### OpenAPI & Spec Sync
 
 - Connect OpenAPI 3 specs by URL
 - Sync operations into collections with diff view (added, updated, removed)
 - Per-environment base URL mapping
 - Track source operation IDs for incremental updates
-
-![Add OpenAPI spec and sync endpoints into a collection](screenshots/preview7.png)
 
 ### Documentation linking
 
@@ -101,6 +97,12 @@ Keep API knowledge next to the requests your team actually runs.
 - **Catalog share links** for read-only documentation snapshots
 
 See [docs/documentation-linking.md](docs/documentation-linking.md) for setup, frontmatter format, and API details.
+
+![Per-request documentation notes with linked doc pages](screenshots/scrsht-03.png)
+
+![In-app doc preview modal with Open in docs shortcut](screenshots/scrsht-04.png)
+
+![Markdown documentation workspace with edit/preview split and linked requests](screenshots/scrsht-05.jpg)
 
 ### Import & Export
 
@@ -124,9 +126,39 @@ See [docs/documentation-linking.md](docs/documentation-linking.md) for setup, fr
   - Rosé Pine / Rosé Pine Dawn
   - Kanagawa / One Dark
 
-![Theme picker with Tokyo Night and Nord palettes](screenshots/preview9.png)
+---
 
-![Postchi interface in the Nord theme](screenshots/preview11.png)
+## Screenshots
+
+| | |
+|---|---|
+| Request builder with JSON tree response | ![Request builder](screenshots/scrsht-01.png) |
+| Workspace settings — Git docs sync & CI tokens | ![Workspace settings](screenshots/scrsht-02.png) |
+| Per-request docs & linked pages | ![Request docs](screenshots/scrsht-03.png) |
+| In-app doc preview modal | ![Doc preview](screenshots/scrsht-04.png) |
+| Markdown docs workspace (edit / preview) | ![Docs workspace](screenshots/scrsht-05.jpg) |
+
+---
+
+## Branding
+
+Postchi brand assets live under [`frontend/public/brand/`](frontend/public/brand/) and [`docs/brand/`](docs/brand/).
+
+| Asset | Path | Use |
+|-------|------|-----|
+| Wordmark | [`docs/brand/postchilogo.png`](docs/brand/postchilogo.png) | README, docs, presentations |
+| Logo mark (SVG) | [`frontend/app/assets/brand/logo-mark.svg`](frontend/app/assets/brand/logo-mark.svg) | In-app header, compact placements |
+| Wordmark (SVG) | [`frontend/app/assets/brand/logo-wordmark.svg`](frontend/app/assets/brand/logo-wordmark.svg) | In-app branding, scalable layouts |
+| App icon (SVG) | [`frontend/public/brand/icon.svg`](frontend/public/brand/icon.svg) | Favicon source, general icon |
+| App icons (PNG) | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | PWA, home-screen, maskable tiles |
+| Favicons | `favicon.ico`, `favicon-16.png`, `favicon-32.png`, `favicon-48.png` | Browser tabs |
+| Apple touch icon | [`apple-touch-icon.png`](frontend/public/brand/apple-touch-icon.png) | iOS home screen |
+| Open Graph image | [`og-image.png`](frontend/public/brand/og-image.png) | Social / link previews |
+| Web manifest | [`site.webmanifest`](frontend/public/brand/site.webmanifest) | PWA metadata (`theme_color`: `#1a1b26`) |
+
+<p align="center">
+  <img src="frontend/public/brand/icon-512.png" alt="Postchi icon" width="96">
+</p>
 
 ---
 
@@ -203,8 +235,6 @@ make docker-up      # full stack in Docker
 | Mailpit (local dev) | http://localhost:8025 |
 
 Register the first user at the login page. That account becomes the workspace owner.
-
-![Postchi login and registration page](screenshots/preview10.png)
 
 ---
 
@@ -579,9 +609,12 @@ postchi/
 │   ├── cmd/migrate/   # Standalone migration CLI
 │   └── internal/      # Handlers, executor, import/export, etc.
 ├── frontend/          # Nuxt 4 web application
-│   └── app/           # Pages, components, stores, composables
+│   ├── app/           # Pages, components, stores, composables
+│   └── public/brand/  # Icons, favicons, OG image, web manifest
 ├── migrations/        # SQL migrations (embedded in Docker image)
 ├── docs/              # Guides (documentation linking, network test matrix)
+│   └── brand/         # Wordmark and shared brand assets
+├── screenshots/       # README and marketing screenshots
 ├── docker-compose.yml
 ├── Makefile
 └── .env.example
