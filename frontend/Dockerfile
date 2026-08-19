@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:24.19.0-alpine AS builder
 WORKDIR /app
 ARG NUXT_PUBLIC_API_URL=
 ENV NUXT_PUBLIC_API_URL=${NUXT_PUBLIC_API_URL}
@@ -7,7 +7,7 @@ RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
-FROM node:22-alpine
+FROM node:24.19.0-alpine
 WORKDIR /app
 COPY --from=builder /app/.output ./.output
 EXPOSE 3000

@@ -297,7 +297,7 @@ The API image embeds SQL under `/migrations`. With `AUTO_MIGRATE=true` (default)
 ### Prerequisites
 
 - Go 1.26+
-- Node.js 20+
+- Node.js 24.19.0 (LTS)
 - Docker (for Postgres)
 - golang-migrate CLI (`make tools`)
 
