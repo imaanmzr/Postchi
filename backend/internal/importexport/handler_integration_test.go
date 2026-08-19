@@ -15,10 +15,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/imaanmzr/postchi/backend/internal/auth"
-	"github.com/imaanmzr/postchi/backend/internal/testutil"
 	appdb "github.com/imaanmzr/postchi/backend/internal/db"
 	"github.com/imaanmzr/postchi/backend/internal/db/sqlc"
 	"github.com/imaanmzr/postchi/backend/internal/shared/db"
+	"github.com/imaanmzr/postchi/backend/internal/testutil"
 )
 
 func TestHandlerIntegration(t *testing.T) {
@@ -60,9 +60,16 @@ func TestHandlerIntegration(t *testing.T) {
 
 	t.Run("curl import creates request", func(t *testing.T) {
 		colID, err := store.CreateCollection(ctx, sqlc.CreateCollectionParams{
-			WorkspaceID: appdb.PGUUID(wsID),
-			Name:        "curl-col",
-			CreatedBy:   appdb.PGUUID(userID),
+			WorkspaceID:        appdb.PGUUID(wsID),
+			Name:               "curl-col",
+			Variables:          []byte(`{"pre_request":[],"post_response":[]}`),
+			Headers:            []byte(`[]`),
+			Auth:               []byte(`{}`),
+			Presets:            []byte(`[]`),
+			Proxy:              []byte(`{}`),
+			ClientCertificates: []byte(`[]`),
+			Secrets:            []byte(`[]`),
+			CreatedBy:          appdb.PGUUID(userID),
 		})
 		if err != nil {
 			t.Fatalf("collection: %v", err)

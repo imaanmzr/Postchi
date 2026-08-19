@@ -59,17 +59,17 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Vet
-        run: go vet ./...
-
-      - name: Test
-        run: go test ./... -count=1
-
       - name: Build migration binary
         run: go build -o /tmp/postchi-migrate ./cmd/migrate
 
       - name: Apply migrations
         run: /tmp/postchi-migrate
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./... -count=1
 
   frontend:
     name: Frontend tests

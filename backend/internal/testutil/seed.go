@@ -44,10 +44,17 @@ func SeedCollection(t *testing.T, ctx context.Context, pool *pgxpool.Pool, wsID,
 	t.Helper()
 	store := db.NewStore(pool)
 	colID, err := store.CreateCollection(ctx, sqlc.CreateCollectionParams{
-		WorkspaceID: db.PGUUID(wsID),
-		ParentID:    db.PGUUIDPtr(parentID),
-		Name:        name,
-		CreatedBy:   db.PGUUID(userID),
+		WorkspaceID:        db.PGUUID(wsID),
+		ParentID:           db.PGUUIDPtr(parentID),
+		Name:               name,
+		Variables:          []byte(`{"pre_request":[],"post_response":[]}`),
+		Headers:            []byte(`[]`),
+		Auth:               []byte(`{}`),
+		Presets:            []byte(`[]`),
+		Proxy:              []byte(`{}`),
+		ClientCertificates: []byte(`[]`),
+		Secrets:            []byte(`[]`),
+		CreatedBy:          db.PGUUID(userID),
 	})
 	if err != nil {
 		t.Fatalf("collection: %v", err)
@@ -59,11 +66,19 @@ func SeedRequest(t *testing.T, ctx context.Context, pool *pgxpool.Pool, colID, u
 	t.Helper()
 	store := db.NewStore(pool)
 	reqID, err := store.CreateRequest(ctx, sqlc.CreateRequestParams{
-		CollectionID: db.PGUUID(colID),
-		Name:         name,
-		Method:       "GET",
-		Url:          "https://example.com",
-		CreatedBy:    db.PGUUID(userID),
+		CollectionID:     db.PGUUID(colID),
+		Name:             name,
+		Method:           "GET",
+		Url:              "https://example.com",
+		Headers:          []byte(`[]`),
+		Params:           []byte(`[]`),
+		PathVars:         []byte(`[]`),
+		Body:             []byte(`{}`),
+		Auth:             []byte(`{}`),
+		Settings:         []byte(`{}`),
+		OverriddenFields: []string{},
+		ApiDoc:           []byte(`{}`),
+		CreatedBy:        db.PGUUID(userID),
 	})
 	if err != nil {
 		t.Fatalf("request: %v", err)
