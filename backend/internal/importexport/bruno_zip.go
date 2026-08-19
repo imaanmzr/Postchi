@@ -27,11 +27,12 @@ type brunoParseOptions struct {
 }
 
 type bruDirNode struct {
-	name      string
-	sortOrder int
-	variables domain.VariablesSpec
-	children  map[string]*bruDirNode
-	requests  []model.Request
+	name       string
+	sortOrder  int
+	sourcePath string
+	variables  domain.VariablesSpec
+	children   map[string]*bruDirNode
+	requests   []model.Request
 }
 
 func parseBrunoZip(data []byte) (model.Collection, error) {
@@ -99,6 +100,7 @@ func parseBrunoFiles(files []brunoSourceFile, options brunoParseOptions) (model.
 			if parsed.Name != "" {
 				node.name = parsed.Name
 			}
+			node.sourcePath = name
 			node.variables = bruVarsToSpec(bruno.ToVars(parsed.Sections["vars:pre-request"], parsed.Sections["vars:post-response"]))
 			if seq := bruMetaSeq(parsed); seq >= 0 {
 				node.sortOrder = seq
@@ -112,6 +114,7 @@ func parseBrunoFiles(files []brunoSourceFile, options brunoParseOptions) (model.
 			}
 		}
 		req := bruToNorm(bruno.ToRequest(parsed))
+		req.SourcePath = name
 		if req.Name == "" {
 			req.Name = strings.TrimSuffix(base, filepath.Ext(base))
 		}
@@ -174,12 +177,18 @@ func containsPathSegment(parts []string, target string) bool {
 
 func bruGetOrCreatePath(root *bruDirNode, dirParts []string) *bruDirNode {
 	current := root
+	pathParts := make([]string, 0, len(dirParts))
 	for _, part := range dirParts {
 		if part == "" {
 			continue
 		}
+		pathParts = append(pathParts, part)
 		if current.children[part] == nil {
-			current.children[part] = &bruDirNode{name: part, children: map[string]*bruDirNode{}}
+			current.children[part] = &bruDirNode{
+				name:       part,
+				sourcePath: strings.Join(pathParts, "/") + "/",
+				children:   map[string]*bruDirNode{},
+			}
 		}
 		current = current.children[part]
 	}
@@ -205,10 +214,11 @@ func bruMetaSeq(parsed bruno.ParsedBru) int {
 
 func bruDirToModel(node *bruDirNode) model.Collection {
 	collection := model.Collection{
-		Name:      node.name,
-		SortOrder: node.sortOrder,
-		Variables: node.variables,
-		Requests:  append([]model.Request{}, node.requests...),
+		Name:             node.name,
+		SortOrder:        node.sortOrder,
+		SourcePath:       node.sourcePath,
+		Variables:        node.variables,
+		Requests:         append([]model.Request{}, node.requests...),
 	}
 	sort.SliceStable(collection.Requests, func(i, j int) bool {
 		return collection.Requests[i].SortOrder < collection.Requests[j].SortOrder

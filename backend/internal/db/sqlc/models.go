@@ -130,6 +130,18 @@ type ApiSpecEnvironmentUrl struct {
 	BaseUrl       string      `json:"base_url"`
 }
 
+type BrunoSource struct {
+	ID                   pgtype.UUID        `json:"id"`
+	WorkspaceID          pgtype.UUID        `json:"workspace_id"`
+	CollectionID         pgtype.UUID        `json:"collection_id"`
+	Name                 string             `json:"name"`
+	Config               []byte             `json:"config"`
+	AccessTokenEncrypted *string            `json:"access_token_encrypted"`
+	LastSyncedAt         pgtype.Timestamptz `json:"last_synced_at"`
+	CreatedBy            pgtype.UUID        `json:"created_by"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
 type Collection struct {
 	ID                 pgtype.UUID        `json:"id"`
 	WorkspaceID        pgtype.UUID        `json:"workspace_id"`
@@ -149,6 +161,8 @@ type Collection struct {
 	CreatedBy          pgtype.UUID        `json:"created_by"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	SourcePath         string             `json:"source_path"`
+	BrunoSourceID      pgtype.UUID        `json:"bruno_source_id"`
 }
 
 type DocLinkSuggestion struct {
@@ -268,6 +282,8 @@ type Request struct {
 	CreatedBy         pgtype.UUID        `json:"created_by"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	SourcePath        string             `json:"source_path"`
+	BrunoSourceID     pgtype.UUID        `json:"bruno_source_id"`
 }
 
 type Share struct {

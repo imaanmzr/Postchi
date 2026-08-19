@@ -9,6 +9,7 @@ type Collection struct {
 	Name             string
 	Description      string
 	SortOrder        int
+	SourcePath       string
 	Variables        domain.VariablesSpec
 	Headers          []request.KVPair
 	Auth             request.AuthSpec
@@ -23,6 +24,7 @@ type Request struct {
 	Method           string
 	URL              string
 	Description      string
+	SourcePath       string
 	Headers          []request.KVPair
 	Params           []request.KVPair
 	PathVars         []request.KVPair

@@ -51,7 +51,7 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 	reqH := request.NewHandler(store, cfg, cryptoSvc)
 	envH := environment.NewHandler(store, cryptoSvc)
 	histH := history.NewHandler(store)
-	impH := importexport.NewHandler(store)
+	impH := importexport.NewHandler(store, cryptoSvc)
 	inviteH := invite.NewHandler(store, cfg, tokens)
 	shareH := share.NewHandler(store, cfg)
 	apispecH := apispec.NewHandler(store, cfg)
@@ -133,6 +133,10 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 				r.With(wsTokenH.RequireScope("spec:push")).Post("/api-specs/push", apispecH.Push)
 				r.With(wsH.RequireRole("viewer")).Get("/api-specs", apispecH.List)
 				r.With(wsH.RequireRole("editor")).Post("/api-specs", apispecH.Create)
+				r.With(wsH.RequireRole("viewer")).Get("/bruno-sources", impH.ListBrunoSources)
+				r.With(wsH.RequireRole("editor")).Post("/bruno-sources", impH.CreateBrunoSource)
+				r.With(wsH.RequireRole("editor")).Patch("/bruno-sources/{sourceId}", impH.UpdateBrunoSource)
+				r.With(wsH.RequireRole("editor")).Delete("/bruno-sources/{sourceId}", impH.DeleteBrunoSource)
 				r.With(wsH.RequireRole("editor")).Post("/imports/bruno/git", impH.ImportBrunoGit)
 			})
 
@@ -182,6 +186,7 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 			})
 
 			r.Post("/doc-sources/{id}/sync", docsyncH.SyncSource)
+			r.Post("/bruno-sources/{id}/sync", impH.SyncBrunoSource)
 
 			r.Get("/environments", envH.List)
 			r.Post("/environments", envH.Create)

@@ -4,7 +4,7 @@
       <h3 class="font-medium mb-2">Git markdown docs</h3>
       <p class="text-xs text-muted mb-3">
         Sync <code>.md</code> documentation from GitHub or GitLab — browser links like <code>/-/tree/main/docs</code> work too.
-        To import Bruno API collections, use <strong>API Sync → Import Bruno collection from Git</strong>.
+        To import Bruno API collections, use <strong>API Sync → Sync Bruno collection from Git</strong>.
       </p>
       <div class="space-y-2 mb-3">
         <Input v-model="gitForm.name" placeholder="Source name" />

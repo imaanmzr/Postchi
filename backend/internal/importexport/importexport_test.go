@@ -3,6 +3,7 @@ package importexport
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/imaanmzr/postchi/backend/internal/importexport/bruno"
@@ -36,6 +37,41 @@ func TestBrunoParseRequest(t *testing.T) {
 	reReq := bruToNorm(bruno.ToRequest(reParsed))
 	if reReq.Method != req.Method || reReq.URL != req.URL {
 		t.Fatalf("round-trip failed: %+v", reReq)
+	}
+}
+
+func TestBrunoParsePostJSONBody(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("testdata", "bruno", "post_with_body.bru"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed := bruno.Parse(string(data))
+	req := bruToNorm(bruno.ToRequest(parsed))
+	if req.Method != "POST" {
+		t.Fatalf("method=%q", req.Method)
+	}
+	if req.Body.Mode != "json" || !strings.Contains(req.Body.Raw, "Example Group") {
+		t.Fatalf("body=%+v", req.Body)
+	}
+
+	files := []brunoSourceFile{
+		{Path: "collection.bru", Content: []byte("meta {\n  name: API\n  type: collection\n}\n")},
+		{Path: "create.bru", Content: data},
+	}
+	collection, err := parseBrunoFiles(files, brunoParseOptions{
+		RootName:         "Git Import",
+		RequireRootMeta:  true,
+		ValidateRequests: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(collection.Requests) != 1 {
+		t.Fatalf("requests=%+v", collection.Requests)
+	}
+	imported := collection.Requests[0]
+	if imported.Body.Mode != "json" || !strings.Contains(imported.Body.Raw, "Example Group") {
+		t.Fatalf("imported body=%+v", imported.Body)
 	}
 }
 

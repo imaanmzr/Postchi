@@ -20,6 +20,8 @@ type BruRequest struct {
 	PreRequestScript string
 	TestScript       string
 	Body             string
+	BodyType         string
+	GraphQLVars      string
 	AuthType         string
 	AuthToken        string
 }
@@ -85,20 +87,34 @@ func Parse(content string) ParsedBru {
 func ToRequest(parsed ParsedBru) BruRequest {
 	req := BruRequest{Name: parsed.Name, Method: "GET"}
 	for key, block := range parsed.Sections {
-		switch key {
-		case "get", "post", "put", "patch", "delete":
+		switch {
+		case key == "get" || key == "post" || key == "put" || key == "patch" || key == "delete":
 			req.Method = strings.ToUpper(key)
-			req.URL = firstLine(block)
-		case "headers":
-			req.Headers = parseKVBlock(block)
-		case "body":
+			req.URL = parseMethodURL(block)
+			if bodyType := parseMethodField(block, "body"); bodyType != "" {
+				req.BodyType = bodyType
+			}
+		case key == "headers":
+			req.Headers = ParseKVBlock(block)
+		case key == "body":
 			req.Body = block
-		case "auth:bearer":
+			if req.BodyType == "" {
+				req.BodyType = "json"
+			}
+		case strings.HasPrefix(key, "body:"):
+			bodyKind := strings.TrimPrefix(key, "body:")
+			if bodyKind == "graphql:vars" {
+				req.GraphQLVars = block
+				continue
+			}
+			req.BodyType = bodyKind
+			req.Body = block
+		case key == "auth:bearer":
 			req.AuthType = "bearer"
 			req.AuthToken = parseSingleValue(block, "token")
-		case "script:pre-request":
+		case key == "script:pre-request":
 			req.PreRequestScript = block
-		case "script:post-response", "tests":
+		case key == "script:post-response" || key == "tests":
 			req.TestScript += block
 		}
 	}
@@ -131,9 +147,18 @@ func ToVars(pre, post string) BruVars {
 }
 
 func ExportRequest(req BruRequest) string {
+	bodyType := req.BodyType
+	if bodyType == "" {
+		if req.Body != "" {
+			bodyType = "json"
+		} else {
+			bodyType = "none"
+		}
+	}
+
 	var sb strings.Builder
 	sb.WriteString("meta {\n  name: " + req.Name + "\n  type: http\n}\n\n")
-	sb.WriteString(strings.ToLower(req.Method) + " {\n  url: " + req.URL + "\n}\n\n")
+	sb.WriteString(strings.ToLower(req.Method) + " {\n  url: " + req.URL + "\n  body: " + bodyType + "\n}\n\n")
 	if len(req.Headers) > 0 {
 		sb.WriteString("headers {\n")
 		for _, h := range req.Headers {
@@ -142,7 +167,15 @@ func ExportRequest(req BruRequest) string {
 		sb.WriteString("}\n\n")
 	}
 	if req.Body != "" {
-		sb.WriteString("body {\n" + req.Body + "\n}\n\n")
+		switch bodyType {
+		case "json", "text", "xml", "form-urlencoded", "multipart-form", "graphql", "sparql", "file":
+			sb.WriteString("body:" + bodyType + " {\n" + req.Body + "\n}\n\n")
+		default:
+			sb.WriteString("body {\n" + req.Body + "\n}\n\n")
+		}
+	}
+	if req.GraphQLVars != "" {
+		sb.WriteString("body:graphql:vars {\n" + req.GraphQLVars + "\n}\n\n")
 	}
 	if req.PreRequestScript != "" {
 		sb.WriteString("script:pre-request {\n" + req.PreRequestScript + "\n}\n\n")
@@ -173,20 +206,22 @@ func ExportCollectionMeta(name string, vars BruVars) string {
 	return sb.String()
 }
 
-func firstLine(s string) string {
-	for _, line := range strings.Split(s, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "url:") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "url:"))
-		}
-		if line != "" {
-			return line
-		}
-	}
-	return strings.TrimSpace(s)
+func parseMethodURL(s string) string {
+	return parseMethodField(s, "url")
 }
 
-func parseKVBlock(block string) []KV {
+func parseMethodField(block, field string) string {
+	prefix := field + ":"
+	for _, line := range strings.Split(block, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, prefix) {
+			return strings.TrimSpace(strings.TrimPrefix(line, prefix))
+		}
+	}
+	return ""
+}
+
+func ParseKVBlock(block string) []KV {
 	var out []KV
 	for _, line := range strings.Split(block, "\n") {
 		line = strings.TrimSpace(line)

@@ -20,16 +20,18 @@ import (
 	openapiimport "github.com/imaanmzr/postchi/backend/internal/importexport/openapi"
 	ocimport "github.com/imaanmzr/postchi/backend/internal/importexport/opencollection"
 	"github.com/imaanmzr/postchi/backend/internal/request"
+	"github.com/imaanmzr/postchi/backend/internal/shared/crypto"
 	"github.com/imaanmzr/postchi/backend/internal/shared/domain"
 	"github.com/imaanmzr/postchi/backend/internal/shared/respond"
 )
 
 type Handler struct {
-	store *db.Store
+	store  *db.Store
+	crypto *crypto.Service
 }
 
-func NewHandler(store *db.Store) *Handler {
-	return &Handler{store: store}
+func NewHandler(store *db.Store, cryptoSvc *crypto.Service) *Handler {
+	return &Handler{store: store, crypto: cryptoSvc}
 }
 
 func parseWorkspaceID(r *http.Request) (uuid.UUID, error) {

@@ -41,7 +41,7 @@ func TestHandlerIntegration(t *testing.T) {
 
 	userID, wsID := seedWorkspace(t, ctx, pool)
 	store := appdb.NewStore(pool)
-	h := NewHandler(store)
+	h := NewHandler(store, nil)
 	tokens := auth.NewService("test-secret-key-32-chars-minimum!", "postchi", 0, 0)
 
 	t.Run("postman nested import counts", func(t *testing.T) {
