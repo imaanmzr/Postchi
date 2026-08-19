@@ -56,12 +56,15 @@
 </template>
 
 <script setup lang="ts">
+import { safeAuthRedirect } from '~/utils/authRedirect'
+
 const props = defineProps<{
   mode: 'login' | 'register'
 }>()
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const email = ref('')
 const password = ref('')
 const displayName = ref('')
@@ -77,7 +80,7 @@ async function handleSubmit() {
     } else {
       await auth.login(email.value, password.value)
     }
-    await router.push('/workspaces')
+    await router.push(safeAuthRedirect(route.query.redirect))
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Something went wrong'
   } finally {

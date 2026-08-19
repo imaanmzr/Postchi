@@ -55,7 +55,7 @@ ORDER BY source_path, title;
 SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
 FROM workspace_docs
 WHERE workspace_id = @workspace_id
-  AND @operation_id = ANY(linked_operation_ids)
+  AND sqlc.arg(operation_id)::text = ANY(linked_operation_ids)
 ORDER BY source_path, title;
 
 -- name: ClearWorkspaceDocSlugConflict :exec

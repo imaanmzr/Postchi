@@ -68,6 +68,44 @@ func TestShareHandlerIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("create workspace catalog share", func(t *testing.T) {
+		rr := httptest.NewRecorder()
+		body := `{"kind":"catalog","source_id":"` + wsID.String() + `","workspace_id":"` + wsID.String() + `","landing_request_id":"` + reqID.String() + `","visibility":"link"}`
+		r := httptest.NewRequest(http.MethodPost, "/api/shares", strings.NewReader(body))
+		r = r.WithContext(context.WithValue(r.Context(), auth.UserIDKey, userID.String()))
+		h.Create(rr, r)
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("create status %d: %s", rr.Code, rr.Body.String())
+		}
+
+		var created Share
+		if err := json.Unmarshal(rr.Body.Bytes(), &created); err != nil {
+			t.Fatalf("decode share: %v", err)
+		}
+		endpoints, ok := created.Snapshot["endpoints"].([]any)
+		if !ok || len(endpoints) != 1 {
+			t.Fatalf("expected one catalog endpoint, got %#v", created.Snapshot["endpoints"])
+		}
+		collections, ok := created.Snapshot["collections"].([]any)
+		if !ok || len(collections) != 1 {
+			t.Fatalf("expected one catalog collection, got %#v", created.Snapshot["collections"])
+		}
+		if created.Snapshot["landing_request_id"] != reqID.String() {
+			t.Fatalf("expected landing request %s, got %#v", reqID, created.Snapshot["landing_request_id"])
+		}
+	})
+
+	t.Run("reject catalog landing request outside snapshot", func(t *testing.T) {
+		rr := httptest.NewRecorder()
+		body := `{"kind":"catalog","source_id":"` + wsID.String() + `","workspace_id":"` + wsID.String() + `","landing_request_id":"` + wsID.String() + `","visibility":"link"}`
+		r := httptest.NewRequest(http.MethodPost, "/api/shares", strings.NewReader(body))
+		r = r.WithContext(context.WithValue(r.Context(), auth.UserIDKey, userID.String()))
+		h.Create(rr, r)
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected status 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+
 	t.Run("revoked share returns gone", func(t *testing.T) {
 		rr := httptest.NewRecorder()
 		body := `{"kind":"request","source_id":"` + reqID.String() + `","workspace_id":"` + wsID.String() + `","visibility":"link"}`

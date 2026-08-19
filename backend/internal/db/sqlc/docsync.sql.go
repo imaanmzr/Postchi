@@ -652,13 +652,13 @@ const listWorkspaceDocsByOperation = `-- name: ListWorkspaceDocsByOperation :man
 SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
 FROM workspace_docs
 WHERE workspace_id = $1
-  AND $2 = ANY(linked_operation_ids)
+  AND $2::text = ANY(linked_operation_ids)
 ORDER BY source_path, title
 `
 
 type ListWorkspaceDocsByOperationParams struct {
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
-	OperationID []string    `json:"operation_id"`
+	OperationID string      `json:"operation_id"`
 }
 
 type ListWorkspaceDocsByOperationRow struct {

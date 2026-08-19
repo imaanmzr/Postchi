@@ -67,12 +67,13 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Kind        string `json:"kind"`
-		SourceID    string `json:"source_id"`
-		WorkspaceID string `json:"workspace_id"`
-		Title       string `json:"title"`
-		Visibility  string `json:"visibility"`
-		TTLHours    *int   `json:"ttl_hours"`
+		Kind             string `json:"kind"`
+		SourceID         string `json:"source_id"`
+		WorkspaceID      string `json:"workspace_id"`
+		LandingRequestID string `json:"landing_request_id"`
+		Title            string `json:"title"`
+		Visibility       string `json:"visibility"`
+		TTLHours         *int   `json:"ttl_hours"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Kind == "" || req.SourceID == "" || req.WorkspaceID == "" {
 		respond.Error(w, http.StatusBadRequest, "kind, source_id, and workspace_id required")
@@ -103,8 +104,20 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "invalid source_id")
 		return
 	}
+	landingRequestID := uuid.Nil
+	if req.LandingRequestID != "" {
+		if req.Kind != "catalog" {
+			respond.Error(w, http.StatusBadRequest, "landing_request_id is only valid for catalog shares")
+			return
+		}
+		landingRequestID, err = uuid.Parse(req.LandingRequestID)
+		if err != nil {
+			respond.Error(w, http.StatusBadRequest, "invalid landing_request_id")
+			return
+		}
+	}
 
-	snapshot, title, err := h.buildSnapshot(r.Context(), req.Kind, sourceID, wsID)
+	snapshot, title, err := h.buildSnapshot(r.Context(), req.Kind, sourceID, wsID, landingRequestID)
 	if err != nil {
 		respond.Error(w, http.StatusBadRequest, err.Error())
 		return
@@ -438,8 +451,63 @@ func (h *Handler) loadByToken(ctx context.Context, token string) (*shareRow, err
 	}, nil
 }
 
-func (h *Handler) buildSnapshot(ctx context.Context, kind string, sourceID, wsID uuid.UUID) (map[string]any, string, error) {
+func (h *Handler) buildSnapshot(ctx context.Context, kind string, sourceID, wsID, landingRequestID uuid.UUID) (map[string]any, string, error) {
 	if kind == "catalog" {
+		if sourceID == wsID {
+			collections, err := h.store.ListCatalogCollections(ctx, db.PGUUID(wsID))
+			if err != nil {
+				return nil, "", err
+			}
+			collectionNames := make(map[string]string, len(collections))
+			snapshotCollections := make([]map[string]any, 0, len(collections))
+			for _, col := range collections {
+				id := db.FromPGUUID(col.ID).String()
+				collectionNames[id] = col.Name
+				snapshotCollections = append(snapshotCollections, map[string]any{
+					"id":          id,
+					"name":        col.Name,
+					"description": col.Description,
+				})
+			}
+
+			rows, err := h.store.ListRequestsByWorkspace(ctx, db.PGUUID(wsID))
+			if err != nil {
+				return nil, "", err
+			}
+			endpoints := make([]map[string]any, 0, len(rows))
+			landingRequestFound := landingRequestID == uuid.Nil
+			for _, r := range rows {
+				requestID := db.FromPGUUID(r.ID)
+				if requestID == landingRequestID {
+					landingRequestFound = true
+				}
+				collectionID := db.FromPGUUID(r.CollectionID).String()
+				var doc any
+				_ = json.Unmarshal(r.ApiDoc, &doc)
+				endpoints = append(endpoints, map[string]any{
+					"id":              requestID.String(),
+					"collection_id":   collectionID,
+					"collection_name": collectionNames[collectionID],
+					"name":            r.Name,
+					"method":          r.Method,
+					"url":             r.Url,
+					"description":     r.Description,
+					"api_doc":         doc,
+				})
+			}
+			if !landingRequestFound {
+				return nil, "", errors.New("landing request not found in catalog")
+			}
+			snapshot := map[string]any{
+				"collections": snapshotCollections,
+				"endpoints":   endpoints,
+			}
+			if landingRequestID != uuid.Nil {
+				snapshot["landing_request_id"] = landingRequestID.String()
+			}
+			return snapshot, "Workspace API Catalog", nil
+		}
+
 		col, err := h.store.GetCollectionForCatalogShare(ctx, sqlc.GetCollectionForCatalogShareParams{
 			ID:          db.PGUUID(sourceID),
 			WorkspaceID: db.PGUUID(wsID),
@@ -452,9 +520,14 @@ func (h *Handler) buildSnapshot(ctx context.Context, kind string, sourceID, wsID
 			return nil, "", err
 		}
 		var endpoints []map[string]any
+		landingRequestFound := landingRequestID == uuid.Nil
 		for _, r := range rows {
+			requestID := db.FromPGUUID(r.ID)
+			if requestID == landingRequestID {
+				landingRequestFound = true
+			}
 			ep := map[string]any{
-				"id": db.FromPGUUID(r.ID).String(), "name": r.Name, "method": r.Method,
+				"id": requestID.String(), "name": r.Name, "method": r.Method,
 				"url": r.Url, "description": r.Description,
 			}
 			var doc any
@@ -462,11 +535,17 @@ func (h *Handler) buildSnapshot(ctx context.Context, kind string, sourceID, wsID
 			ep["api_doc"] = doc
 			endpoints = append(endpoints, ep)
 		}
+		if !landingRequestFound {
+			return nil, "", errors.New("landing request not found in catalog")
+		}
 		snapshot := map[string]any{
 			"collection": map[string]any{
 				"id": sourceID.String(), "name": col.Name, "description": col.Description,
 			},
 			"endpoints": endpoints,
+		}
+		if landingRequestID != uuid.Nil {
+			snapshot["landing_request_id"] = landingRequestID.String()
 		}
 		return snapshot, col.Name + " API Catalog", nil
 	}

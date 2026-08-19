@@ -13,9 +13,9 @@
       >
         <CatalogTree
           :workspace-id="workspaceId"
-          :tree="colStore.tree"
+          :tree="tree"
           :endpoints="filteredEndpoints"
-          :collections="catalogStore.data?.collections || []"
+          :collections="collections"
           :selected-id="selectedEndpoint?.id"
           :loading="catalogStore.loading"
           @select="selectEndpoint"
@@ -28,15 +28,24 @@
             <MethodBadge :method="selectedEndpoint.method" />
             <h2 class="font-semibold">{{ selectedEndpoint.name }}</h2>
             <span class="font-mono text-sm text-muted truncate min-w-0">{{ selectedEndpoint.url }}</span>
-            <NuxtLink
-              v-if="!readOnly"
-              :to="requestEditorUrl"
-              class="ui-btn ui-btn-ghost text-xs ml-auto shrink-0 inline-flex items-center gap-1.5"
-              title="Open the full request editor to send, edit params, headers, and scripts"
-            >
-              <SquarePen :size="14" aria-hidden="true" />
-              Open in request editor
-            </NuxtLink>
+            <div v-if="!readOnly" class="ml-auto flex items-center gap-2">
+              <Button
+                class="text-xs shrink-0 inline-flex items-center gap-1.5"
+                title="Copy a live link to this request's documentation"
+                @click="copyLiveLink"
+              >
+                <Link :size="14" aria-hidden="true" />
+                {{ liveLinkCopied ? 'Copied' : 'Copy live link' }}
+              </Button>
+              <NuxtLink
+                :to="requestEditorUrl"
+                class="ui-btn ui-btn-ghost text-xs shrink-0 inline-flex items-center gap-1.5"
+                title="Open the full request editor to send, edit params, headers, and scripts"
+              >
+                <SquarePen :size="14" aria-hidden="true" />
+                Open in request editor
+              </NuxtLink>
+            </div>
           </div>
           <RequestDocsPanel
             :request="endpointAsRequest(selectedEndpoint)"
@@ -53,24 +62,47 @@
 </template>
 
 <script setup lang="ts">
-import type { CatalogEndpoint } from '~/stores/catalog'
-import type { RequestItem } from '~/stores/collections'
-import { buildWorkspaceRequestUrl } from '~/utils/docLinks'
-import { SquarePen } from 'lucide-vue-next'
+import type { CatalogCollection, CatalogEndpoint } from '~/stores/catalog'
+import type { RequestItem, TreeNode } from '~/stores/collections'
+import { copyToClipboard } from '~/utils/copyToClipboard'
+import { buildCatalogRequestUrl, buildWorkspaceRequestUrl } from '~/utils/docLinks'
+import { Link, SquarePen } from 'lucide-vue-next'
 
 const props = defineProps<{
   workspaceId: string
   readOnly?: boolean
+  initialEndpointId?: string | null
   snapshotEndpoints?: CatalogEndpoint[]
+  snapshotCollections?: CatalogCollection[]
+}>()
+
+const emit = defineEmits<{
+  'endpoint-selected': [id: string]
 }>()
 
 const catalogStore = useCatalogStore()
 const colStore = useCollectionsStore()
 const selectedEndpoint = ref<CatalogEndpoint | null>(null)
+const liveLinkCopied = ref(false)
 
 const endpoints = computed(() => {
   if (props.snapshotEndpoints) return props.snapshotEndpoints
   return catalogStore.data?.endpoints || []
+})
+
+const collections = computed(() => {
+  if (props.snapshotCollections) return props.snapshotCollections
+  return catalogStore.data?.collections || []
+})
+
+const tree = computed((): TreeNode[] => {
+  if (!props.snapshotCollections) return colStore.tree
+  return props.snapshotCollections.map((collection, index) => ({
+    ...collection,
+    workspace_id: props.workspaceId,
+    sort_order: index,
+    children: [],
+  }))
 })
 
 const filteredEndpoints = computed(() => endpoints.value)
@@ -106,6 +138,26 @@ function onFilterUpdate(filters: Partial<typeof catalogStore.filters>) {
 
 function selectEndpoint(ep: CatalogEndpoint) {
   selectedEndpoint.value = ep
+  emit('endpoint-selected', ep.id)
+}
+
+watch(
+  () => [props.initialEndpointId, endpoints.value] as const,
+  ([id, availableEndpoints]) => {
+    if (!id || selectedEndpoint.value?.id === id) return
+    const endpoint = availableEndpoints.find(ep => ep.id === id)
+    if (endpoint) selectedEndpoint.value = endpoint
+  },
+  { immediate: true },
+)
+
+async function copyLiveLink() {
+  if (!selectedEndpoint.value || !import.meta.client) return
+  const path = buildCatalogRequestUrl(props.workspaceId, selectedEndpoint.value.id)
+  const copied = await copyToClipboard(new URL(path, window.location.origin).toString())
+  if (!copied) return
+  liveLinkCopied.value = true
+  setTimeout(() => { liveLinkCopied.value = false }, 1500)
 }
 
 function endpointAsRequest(ep: CatalogEndpoint): RequestItem {

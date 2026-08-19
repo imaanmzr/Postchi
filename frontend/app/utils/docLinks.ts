@@ -3,6 +3,11 @@ export function buildWorkspaceRequestUrl(workspaceId: string, requestId: string)
   return `/workspaces/${workspaceId}?${q}`
 }
 
+export function buildCatalogRequestUrl(workspaceId: string, requestId: string) {
+  const q = new URLSearchParams({ request: requestId })
+  return `/workspaces/${workspaceId}/catalog?${q}`
+}
+
 export function normalizeDocPath(path?: string | null): string {
   if (!path) return ''
   return path.toLowerCase().replace(/\s+/g, '').replace(/\\/g, '/')

@@ -1,3 +1,5 @@
+import { safeAuthRedirect } from '~/utils/authRedirect'
+
 const publicPaths = ['/login', '/register']
 
 export default defineNuxtRouteMiddleware(async (to) => {
@@ -11,11 +13,16 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (isPublic) {
     if (to.path === '/login' || to.path === '/register') {
       const valid = await auth.ensureSession()
-      if (valid) return navigateTo('/workspaces')
+      if (valid) return navigateTo(safeAuthRedirect(to.query.redirect))
     }
     return
   }
 
   const valid = await auth.ensureSession()
-  if (!valid) return navigateTo('/login')
+  if (!valid) {
+    return navigateTo({
+      path: '/login',
+      query: { redirect: to.fullPath },
+    })
+  }
 })

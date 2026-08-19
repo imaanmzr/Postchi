@@ -266,7 +266,7 @@ Copy `.env.example` to `.env` and adjust values for your environment.
 |----------|---------|-------------|
 | `PUBLIC_APP_URL` | `http://localhost:3000` | URL teammates use in the browser |
 | `NUXT_PUBLIC_API_URL` | *(empty)* | Browser-reachable API URL. Leave empty for same-origin `/api` behind a reverse proxy |
-| `APP_PUBLIC_URL` | `http://localhost:3000` | Base URL for invite links in emails |
+| `APP_PUBLIC_URL` | `http://localhost:3000` | Base URL for invite and share links |
 | `NUXT_DEV_API_PROXY` | `http://localhost:8080` | Dev proxy target when `NUXT_PUBLIC_API_URL` is empty |
 
 ### Email (Invites)

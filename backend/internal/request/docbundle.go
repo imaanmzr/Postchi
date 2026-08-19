@@ -77,7 +77,7 @@ func buildLinkedWorkspaceDocs(
 	if operationID != "" {
 		rows, err := store.ListWorkspaceDocsByOperation(ctx, sqlc.ListWorkspaceDocsByOperationParams{
 			WorkspaceID: wsID,
-			OperationID: []string{operationID},
+			OperationID: operationID,
 		})
 		if err != nil {
 			return nil, err

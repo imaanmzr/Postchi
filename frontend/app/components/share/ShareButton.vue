@@ -13,6 +13,7 @@
       :workspace-id="workspaceId"
       :kind="kind"
       :source-id="sourceId"
+      :landing-request-id="landingRequestId"
       :default-title="defaultTitle"
       @close="open = false"
     />
@@ -24,6 +25,7 @@ withDefaults(defineProps<{
   workspaceId: string
   kind: 'request' | 'history' | 'catalog'
   sourceId: string
+  landingRequestId?: string
   defaultTitle?: string
   label?: string
   title?: string

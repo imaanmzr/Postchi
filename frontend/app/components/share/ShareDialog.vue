@@ -59,6 +59,7 @@ const props = defineProps<{
   workspaceId: string
   kind: 'request' | 'history' | 'catalog'
   sourceId: string
+  landingRequestId?: string
   defaultTitle?: string
 }>()
 const emit = defineEmits<{ close: [] }>()
@@ -106,6 +107,7 @@ async function create() {
       kind: props.kind,
       source_id: props.sourceId,
       workspace_id: props.workspaceId,
+      landing_request_id: props.landingRequestId || undefined,
       title: title.value || undefined,
       visibility: visibility.value,
       ttl_hours: ttlHours.value || undefined,

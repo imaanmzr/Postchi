@@ -309,6 +309,10 @@ function openPreview(doc: LinkedWorkspaceDoc) {
 
 async function fetchBundle() {
   if (!props.request.id) return
+  if (!props.editable) {
+    bundle.value = null
+    return
+  }
   bundleLoading.value = true
   try {
     bundle.value = await api.get<DocsBundle>(`/api/requests/${props.request.id}/docs-bundle`)

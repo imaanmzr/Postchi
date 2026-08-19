@@ -218,7 +218,7 @@ export const useCollectionsStore = defineStore('collections', {
   },
 })
 
-interface TreeNode extends Collection {
+export interface TreeNode extends Collection {
   children: TreeNode[]
 }
 

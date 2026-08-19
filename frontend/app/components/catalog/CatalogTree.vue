@@ -114,6 +114,10 @@ onMounted(() => {
     const next = { ...expandedIds.value }
     for (const ep of props.endpoints) {
       let cur = colStore.collections.find(c => c.id === ep.collection_id)
+      if (!cur && props.tree.some(node => node.id === ep.collection_id)) {
+        next[ep.collection_id] = true
+        continue
+      }
       const visited = new Set<string>()
       while (cur && !visited.has(cur.id)) {
         visited.add(cur.id)

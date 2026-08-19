@@ -59,6 +59,15 @@
           <span>Share</span>
         </ShareButton>
         <Button
+          v-if="local.id && workspaceId"
+          class="text-xs inline-flex items-center gap-1.5"
+          title="Copy a live link to this request's API documentation"
+          @click="copyLiveLink"
+        >
+          <Link :size="14" :stroke-width="2" aria-hidden="true" />
+          <span>{{ liveLinkCopied ? 'Copied' : 'Live link' }}</span>
+        </Button>
+        <Button
           v-if="local.id && !local.template_id"
           class="text-xs inline-flex items-center gap-1.5"
           @click="createVariant"
@@ -146,9 +155,11 @@
 </template>
 
 <script setup lang="ts">
-import { Code2, GitBranch, Save, Send, Share2 } from 'lucide-vue-next'
+import { Code2, GitBranch, Link, Save, Send, Share2 } from 'lucide-vue-next'
 import type { RequestItem } from '~/stores/collections'
 import { inheritSourceLabel, resolveRequestInheritedAuth } from '~/utils/authInheritance'
+import { copyToClipboard } from '~/utils/copyToClipboard'
+import { buildCatalogRequestUrl } from '~/utils/docLinks'
 
 const props = withDefaults(defineProps<{
   request: RequestItem
@@ -162,6 +173,7 @@ const colStore = useCollectionsStore()
 const tabsStore = useTabsStore()
 const codeOpen = ref(false)
 const childCount = ref(0)
+const liveLinkCopied = ref(false)
 
 const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 const tabItems = [
@@ -215,6 +227,15 @@ async function createVariant() {
   const tabsStore = useTabsStore()
   tabsStore.openRequest(child)
   colStore.setActiveRequest(child)
+}
+
+async function copyLiveLink() {
+  if (!local.value.id || !props.workspaceId || !import.meta.client) return
+  const path = buildCatalogRequestUrl(props.workspaceId, local.value.id)
+  const copied = await copyToClipboard(new URL(path, window.location.origin).toString())
+  if (!copied) return
+  liveLinkCopied.value = true
+  setTimeout(() => { liveLinkCopied.value = false }, 1500)
 }
 
 async function resetField(field: string) {

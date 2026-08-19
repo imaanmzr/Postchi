@@ -29,6 +29,7 @@ export const useSharesStore = defineStore('shares', {
       kind: 'request' | 'history' | 'catalog'
       source_id: string
       workspace_id: string
+      landing_request_id?: string
       title?: string
       visibility?: string
       ttl_hours?: number

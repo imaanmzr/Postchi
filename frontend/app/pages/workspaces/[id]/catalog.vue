@@ -9,6 +9,16 @@
           <BookOpen :size="16" class="opacity-80 shrink-0" aria-hidden="true" />
           API Reference
         </h1>
+        <ShareButton
+          v-if="workspaceId"
+          :workspace-id="workspaceId"
+          kind="catalog"
+          :source-id="workspaceId"
+          :landing-request-id="selectedRequestId"
+          default-title="Workspace API Catalog"
+          label="Share API Docs"
+          class="ml-auto"
+        />
         <NuxtLink
           :to="`/workspaces/${workspaceId}`"
           class="text-xs text-muted hover:text-default transition inline-flex items-center gap-1.5"
@@ -23,7 +33,12 @@
         when you need to send the request or change params, headers, and scripts.
       </p>
     </header>
-    <CatalogBrowser class="flex-1 min-h-0" :workspace-id="workspaceId" />
+    <CatalogBrowser
+      class="flex-1 min-h-0"
+      :workspace-id="workspaceId"
+      :initial-endpoint-id="selectedRequestId"
+      @endpoint-selected="onEndpointSelected"
+    />
   </div>
 </template>
 
@@ -31,7 +46,25 @@
 import { ArrowLeft, BookOpen } from 'lucide-vue-next'
 
 const route = useRoute()
+const router = useRouter()
 const workspaceId = computed(() => route.params.id as string)
+const selectedRequestId = ref(
+  typeof route.query.request === 'string' ? route.query.request : '',
+)
+
+watch(() => route.query.request, (requestId) => {
+  selectedRequestId.value = typeof requestId === 'string' ? requestId : ''
+})
+
+function onEndpointSelected(requestId: string) {
+  selectedRequestId.value = requestId
+  void router.replace({
+    query: {
+      ...route.query,
+      request: requestId,
+    },
+  })
+}
 </script>
 
 <style scoped>

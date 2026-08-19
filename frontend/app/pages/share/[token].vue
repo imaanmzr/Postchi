@@ -20,6 +20,8 @@
             read-only
             :workspace-id="share.workspace_id"
             :snapshot-endpoints="catalogEndpoints"
+            :snapshot-collections="catalogCollections"
+            :initial-endpoint-id="catalogLandingRequestId"
           />
         </template>
         <template v-else>
@@ -98,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import type { CatalogEndpoint } from '~/stores/catalog'
+import type { CatalogCollection, CatalogEndpoint } from '~/stores/catalog'
 import type { Share } from '~/stores/shares'
 import type { RequestItem } from '~/stores/collections'
 import { extractPlaceholdersFromRequest } from '~/utils/placeholders'
@@ -135,8 +137,8 @@ const catalogEndpoints = computed((): CatalogEndpoint[] => {
   if (!Array.isArray(endpoints)) return []
   return endpoints.map(ep => ({
     id: ep.id,
-    collection_id: share.value!.source_id,
-    collection_name: (share.value!.snapshot.collection as any)?.name || '',
+    collection_id: ep.collection_id || share.value!.source_id,
+    collection_name: ep.collection_name || (share.value!.snapshot.collection as any)?.name || '',
     name: ep.name,
     method: ep.method,
     url: ep.url,
@@ -146,6 +148,36 @@ const catalogEndpoints = computed((): CatalogEndpoint[] => {
     api_doc: ep.api_doc || {},
     docs_complete: !!(ep.description || ep.api_doc?.responses),
   }))
+})
+
+const catalogCollections = computed((): CatalogCollection[] => {
+  if (!share.value?.snapshot || share.value.kind !== 'catalog') return []
+  const rawCollections = share.value.snapshot.collections as any[]
+  if (Array.isArray(rawCollections) && rawCollections.length) {
+    return rawCollections.map(collection => ({
+      id: collection.id,
+      name: collection.name,
+      description: collection.description || '',
+      request_count: catalogEndpoints.value.filter(ep => ep.collection_id === collection.id).length,
+      documented_count: catalogEndpoints.value.filter(ep => ep.collection_id === collection.id && ep.docs_complete).length,
+    }))
+  }
+
+  const collection = share.value.snapshot.collection as Record<string, unknown> | undefined
+  if (!collection?.id || !collection.name) return []
+  return [{
+    id: collection.id as string,
+    name: collection.name as string,
+    description: (collection.description as string) || '',
+    request_count: catalogEndpoints.value.length,
+    documented_count: catalogEndpoints.value.filter(ep => ep.docs_complete).length,
+  }]
+})
+
+const catalogLandingRequestId = computed(() => {
+  if (!share.value?.snapshot || share.value.kind !== 'catalog') return ''
+  const requestId = share.value.snapshot.landing_request_id
+  return typeof requestId === 'string' ? requestId : ''
 })
 
 const requestData = computed(() => {
