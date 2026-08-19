@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -476,8 +475,6 @@ func containsOp(ops []string, opID string) bool {
 	return false
 }
 
-var frontmatterRe = regexp.MustCompile(`(?s)^---\n(.*?)\n---\n(.*)$`)
-
 const (
 	maxSyncFiles         = 2000
 	maxConcurrentFetches = 8
@@ -677,28 +674,3 @@ func mapDocSourceFields(
 	return s
 }
 
-func parseMarkdownDoc(content, path string) (title string, ops []string, body string) {
-	title = strings.TrimSuffix(path, ".md")
-	body = content
-	m := frontmatterRe.FindStringSubmatch(content)
-	if len(m) == 3 {
-		body = strings.TrimSpace(m[2])
-		for _, line := range strings.Split(m[1], "\n") {
-			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "title:") {
-				title = strings.TrimSpace(strings.TrimPrefix(line, "title:"))
-			}
-			if strings.HasPrefix(line, "operations:") {
-				raw := strings.TrimSpace(strings.TrimPrefix(line, "operations:"))
-				raw = strings.Trim(raw, "[]")
-				for _, part := range strings.Split(raw, ",") {
-					part = strings.TrimSpace(part)
-					if part != "" {
-						ops = append(ops, part)
-					}
-				}
-			}
-		}
-	}
-	return title, ops, body
-}

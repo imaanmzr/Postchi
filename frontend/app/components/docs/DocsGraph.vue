@@ -139,8 +139,12 @@ function renderGraph() {
     .selectAll<SVGLineElement, SimLink>('line')
     .data(simLinks, d => `${String(d.source)}->${String(d.target)}`)
     .join('line')
-    .attr('stroke-width', d => d.type === 'operation' ? 1.5 : 1)
-    .attr('stroke-dasharray', d => d.type === 'operation' ? '4 3' : null)
+    .attr('stroke-width', d => (d.type === 'operation' || d.type === 'frontmatter') ? 1.5 : 1)
+    .attr('stroke-dasharray', d => {
+      if (d.type === 'suggested') return '2 4'
+      if (d.type === 'operation' || d.type === 'frontmatter') return '4 3'
+      return null
+    })
 
   const nodeSel = g.select('g.nodes')
     .selectAll<SVGGElement, SimNode>('g.node')

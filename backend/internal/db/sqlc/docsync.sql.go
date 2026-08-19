@@ -703,6 +703,61 @@ func (q *Queries) ListWorkspaceDocsByOperation(ctx context.Context, arg ListWork
 	return items, nil
 }
 
+const listWorkspaceDocsByOperationIDs = `-- name: ListWorkspaceDocsByOperationIDs :many
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+FROM workspace_docs
+WHERE workspace_id = $1
+  AND linked_operation_ids && $2::text[]
+ORDER BY source_path, title
+`
+
+type ListWorkspaceDocsByOperationIDsParams struct {
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+	OperationIds []string    `json:"operation_ids"`
+}
+
+type ListWorkspaceDocsByOperationIDsRow struct {
+	ID                 pgtype.UUID        `json:"id"`
+	WorkspaceID        pgtype.UUID        `json:"workspace_id"`
+	Slug               string             `json:"slug"`
+	Title              string             `json:"title"`
+	ContentMd          string             `json:"content_md"`
+	SourcePath         string             `json:"source_path"`
+	IsLocal            bool               `json:"is_local"`
+	LinkedOperationIds []string           `json:"linked_operation_ids"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListWorkspaceDocsByOperationIDs(ctx context.Context, arg ListWorkspaceDocsByOperationIDsParams) ([]ListWorkspaceDocsByOperationIDsRow, error) {
+	rows, err := q.db.Query(ctx, listWorkspaceDocsByOperationIDs, arg.WorkspaceID, arg.OperationIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWorkspaceDocsByOperationIDsRow{}
+	for rows.Next() {
+		var i ListWorkspaceDocsByOperationIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Slug,
+			&i.Title,
+			&i.ContentMd,
+			&i.SourcePath,
+			&i.IsLocal,
+			&i.LinkedOperationIds,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateDocSource = `-- name: UpdateDocSource :exec
 UPDATE doc_sources
 SET name = COALESCE($1, name),

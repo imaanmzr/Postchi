@@ -14,6 +14,19 @@
       <div class="h-4 w-px" style="background: var(--color-border)" />
       <h1 class="font-semibold text-sm">Documentation</h1>
       <div class="flex-1" />
+      <button
+        type="button"
+        class="text-xs px-2.5 py-1 rounded border transition hover:bg-surface-2 inline-flex items-center gap-1.5"
+        style="border-color: var(--color-border); color: var(--color-text-muted)"
+        @click="suggestionsOpen = true"
+      >
+        Suggestions
+        <span
+          v-if="docsStore.pendingSuggestionCount"
+          class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+          style="background: var(--color-accent); color: var(--color-bg)"
+        >{{ docsStore.pendingSuggestionCount }}</span>
+      </button>
       <div
         class="inline-flex rounded-md border overflow-hidden text-xs transition-opacity duration-150"
         style="border-color: var(--color-border)"
@@ -171,6 +184,12 @@
       @close="paletteOpen = false"
       @select="selectDoc"
     />
+
+    <DocLinkSuggestionsPanel
+      :open="suggestionsOpen"
+      :workspace-id="workspaceId"
+      @close="suggestionsOpen = false"
+    />
   </div>
 </template>
 
@@ -207,6 +226,7 @@ const editContent = ref('')
 const savedTitle = ref('')
 const savedContent = ref('')
 const paletteOpen = ref(false)
+const suggestionsOpen = ref(false)
 const treeRef = ref<{ revealPath: (path: string) => void } | null>(null)
 const editorRef = ref<InstanceType<typeof MarkdownEditor> | null>(null)
 const previewEl = ref<HTMLElement | null>(null)
@@ -445,6 +465,7 @@ onMounted(async () => {
     await docsStore.fetchWorkspace(props.workspaceId)
     workspaceReady.value = true
     void docsStore.fetchGraph(props.workspaceId)
+    void docsStore.fetchSuggestions(props.workspaceId, 'pending').catch(() => {})
     if (activeSlug.value) {
       await openDoc(activeSlug.value)
     } else if (docsStore.summaries[0]) {

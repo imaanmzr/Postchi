@@ -15,7 +15,7 @@ export interface DocGraphNode {
 export interface DocGraphEdge {
   source: string
   target: string
-  type: 'link' | 'operation' | 'manual'
+  type: 'link' | 'operation' | 'manual' | 'frontmatter' | 'suggested'
 }
 
 export interface DocLinkItem {
@@ -28,12 +28,44 @@ export interface DocLinkItem {
   collection_name: string
 }
 
+export type DocLinkSource = 'frontmatter' | 'manual' | 'suggested'
+
+export interface DocRequestLinkItem {
+  request_id: string
+  request_name: string
+  method: string
+  url: string
+  source_operation_id: string
+  collection_name: string
+  link_sources: DocLinkSource[]
+  link_id?: string
+  suggestion_id?: string
+  confidence?: string
+  reason?: string
+}
+
+export interface DocLinkSuggestion {
+  id: string
+  doc_id: string
+  doc_title: string
+  doc_slug: string
+  request_id: string
+  request_name: string
+  method: string
+  url: string
+  collection_name: string
+  reason: string
+  confidence: 'high' | 'medium' | 'low'
+  evidence: Record<string, unknown>
+  status: string
+}
+
 export interface LinkedWorkspaceDoc {
   id: string
   slug: string
   title: string
   content_md: string
-  link_sources: ('frontmatter' | 'manual')[]
+  link_sources: ('frontmatter' | 'manual' | 'suggested')[]
   link_id?: string
 }
 
@@ -54,6 +86,9 @@ export const useDocsStore = defineStore('docs', {
     /** Plain object for Vue/Pinia reactivity (Map mutations are not tracked reliably). */
     contentBySlug: {} as Record<string, WorkspaceDoc>,
     graph: null as DocGraph | null,
+    suggestions: [] as DocLinkSuggestion[],
+    pendingSuggestionCount: 0,
+    analyzingLinks: false,
     loading: false,
     loadingDoc: false,
     loadingDocCount: 0,
@@ -174,6 +209,12 @@ export const useDocsStore = defineStore('docs', {
       delete next[slug]
       this.contentBySlug = next
     },
+    async fetchDocRequestLinks(workspaceId: string, docId: string) {
+      const api = useApi()
+      return api.get<DocRequestLinkItem[]>(
+        `/api/workspaces/${workspaceId}/workspace-docs/${docId}/request-links`,
+      )
+    },
     async fetchDocLinks(workspaceId: string, docId: string) {
       const api = useApi()
       return api.get<DocLinkItem[]>(
@@ -190,6 +231,54 @@ export const useDocsStore = defineStore('docs', {
     async deleteDocLink(workspaceId: string, docId: string, linkId: string) {
       const api = useApi()
       return api.delete(`/api/workspaces/${workspaceId}/workspace-docs/${docId}/links/${linkId}`)
+    },
+    async fetchSuggestions(workspaceId: string, status = 'pending') {
+      const api = useApi()
+      this.suggestions = await api.get<DocLinkSuggestion[]>(
+        `/api/workspaces/${workspaceId}/doc-links/suggestions?status=${encodeURIComponent(status)}`,
+      )
+      this.pendingSuggestionCount = status === 'pending' ? this.suggestions.length : this.pendingSuggestionCount
+      return this.suggestions
+    },
+    async analyzeLinks(workspaceId: string) {
+      const api = useApi()
+      this.analyzingLinks = true
+      try {
+        const result = await api.post<{ pending_total: number }>(
+          `/api/workspaces/${workspaceId}/doc-links/analyze`,
+        )
+        this.pendingSuggestionCount = result.pending_total ?? 0
+        await this.fetchSuggestions(workspaceId, 'pending')
+        return result
+      } finally {
+        this.analyzingLinks = false
+      }
+    },
+    async acceptSuggestion(workspaceId: string, suggestionId: string) {
+      const api = useApi()
+      await api.post(`/api/workspaces/${workspaceId}/doc-links/suggestions/${suggestionId}/accept`)
+      this.suggestions = this.suggestions.filter(s => s.id !== suggestionId)
+      this.pendingSuggestionCount = Math.max(0, this.pendingSuggestionCount - 1)
+    },
+    async rejectSuggestion(workspaceId: string, suggestionId: string) {
+      const api = useApi()
+      await api.post(`/api/workspaces/${workspaceId}/doc-links/suggestions/${suggestionId}/reject`)
+      this.suggestions = this.suggestions.filter(s => s.id !== suggestionId)
+      this.pendingSuggestionCount = Math.max(0, this.pendingSuggestionCount - 1)
+    },
+    async acceptAllHighSuggestions(workspaceId: string) {
+      const api = useApi()
+      const result = await api.post<{ accepted: number }>(
+        `/api/workspaces/${workspaceId}/doc-links/suggestions/accept-all?confidence=high`,
+      )
+      await this.fetchSuggestions(workspaceId, 'pending')
+      return result
+    },
+    async backfillOperationIds(workspaceId: string) {
+      const api = useApi()
+      return api.post<{ updated: number, skipped: number }>(
+        `/api/workspaces/${workspaceId}/requests/backfill-operation-ids`,
+      )
     },
   },
 })

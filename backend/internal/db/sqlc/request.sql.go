@@ -11,6 +11,32 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const backfillRequestOperationIDs = `-- name: BackfillRequestOperationIDs :execrows
+UPDATE requests r
+SET source_operation_id = $1,
+    updated_at = now()
+FROM collections c
+WHERE r.collection_id = c.id
+  AND c.workspace_id = $2
+  AND r.id = $3
+  AND r.source_operation_id = ''
+  AND r.source_spec_id IS NULL
+`
+
+type BackfillRequestOperationIDsParams struct {
+	SourceOperationID string      `json:"source_operation_id"`
+	WorkspaceID       pgtype.UUID `json:"workspace_id"`
+	RequestID         pgtype.UUID `json:"request_id"`
+}
+
+func (q *Queries) BackfillRequestOperationIDs(ctx context.Context, arg BackfillRequestOperationIDsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, backfillRequestOperationIDs, arg.SourceOperationID, arg.WorkspaceID, arg.RequestID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const createExample = `-- name: CreateExample :one
 INSERT INTO examples (request_id, name, response, created_by)
 VALUES ($1, $2, $3, $4)
@@ -291,7 +317,8 @@ func (q *Queries) GetRequest(ctx context.Context, id pgtype.UUID) (GetRequestRow
 }
 
 const getRequestDocsBundle = `-- name: GetRequestDocsBundle :one
-SELECT r.description, COALESCE(r.api_doc, '{}'), COALESCE(r.source_operation_id, ''), r.collection_id
+SELECT r.description, COALESCE(r.api_doc, '{}'), COALESCE(r.source_operation_id, ''), r.collection_id,
+       r.method, r.url
 FROM requests r
 WHERE r.id = $1
 `
@@ -301,6 +328,8 @@ type GetRequestDocsBundleRow struct {
 	ApiDoc            []byte      `json:"api_doc"`
 	SourceOperationID string      `json:"source_operation_id"`
 	CollectionID      pgtype.UUID `json:"collection_id"`
+	Method            string      `json:"method"`
+	Url               string      `json:"url"`
 }
 
 func (q *Queries) GetRequestDocsBundle(ctx context.Context, id pgtype.UUID) (GetRequestDocsBundleRow, error) {
@@ -311,6 +340,8 @@ func (q *Queries) GetRequestDocsBundle(ctx context.Context, id pgtype.UUID) (Get
 		&i.ApiDoc,
 		&i.SourceOperationID,
 		&i.CollectionID,
+		&i.Method,
+		&i.Url,
 	)
 	return i, err
 }
@@ -487,26 +518,27 @@ func (q *Queries) ImportSharedRequest(ctx context.Context, arg ImportSharedReque
 }
 
 const insertImportedRequest = `-- name: InsertImportedRequest :exec
-INSERT INTO requests (collection_id, name, method, url, headers, params, path_vars, body, auth, settings, pre_request_script, test_script, sort_order, description, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+INSERT INTO requests (collection_id, name, method, url, headers, params, path_vars, body, auth, settings, pre_request_script, test_script, sort_order, description, source_operation_id, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 `
 
 type InsertImportedRequestParams struct {
-	CollectionID     pgtype.UUID `json:"collection_id"`
-	Name             string      `json:"name"`
-	Method           string      `json:"method"`
-	Url              string      `json:"url"`
-	Headers          []byte      `json:"headers"`
-	Params           []byte      `json:"params"`
-	PathVars         []byte      `json:"path_vars"`
-	Body             []byte      `json:"body"`
-	Auth             []byte      `json:"auth"`
-	Settings         []byte      `json:"settings"`
-	PreRequestScript string      `json:"pre_request_script"`
-	TestScript       string      `json:"test_script"`
-	SortOrder        int32       `json:"sort_order"`
-	Description      string      `json:"description"`
-	CreatedBy        pgtype.UUID `json:"created_by"`
+	CollectionID      pgtype.UUID `json:"collection_id"`
+	Name              string      `json:"name"`
+	Method            string      `json:"method"`
+	Url               string      `json:"url"`
+	Headers           []byte      `json:"headers"`
+	Params            []byte      `json:"params"`
+	PathVars          []byte      `json:"path_vars"`
+	Body              []byte      `json:"body"`
+	Auth              []byte      `json:"auth"`
+	Settings          []byte      `json:"settings"`
+	PreRequestScript  string      `json:"pre_request_script"`
+	TestScript        string      `json:"test_script"`
+	SortOrder         int32       `json:"sort_order"`
+	Description       string      `json:"description"`
+	SourceOperationID string      `json:"source_operation_id"`
+	CreatedBy         pgtype.UUID `json:"created_by"`
 }
 
 func (q *Queries) InsertImportedRequest(ctx context.Context, arg InsertImportedRequestParams) error {
@@ -525,6 +557,7 @@ func (q *Queries) InsertImportedRequest(ctx context.Context, arg InsertImportedR
 		arg.TestScript,
 		arg.SortOrder,
 		arg.Description,
+		arg.SourceOperationID,
 		arg.CreatedBy,
 	)
 	return err
@@ -1210,6 +1243,41 @@ func (q *Queries) ListRequestsForExport(ctx context.Context, collectionID pgtype
 			&i.SortOrder,
 			&i.Description,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRequestsForOperationBackfill = `-- name: ListRequestsForOperationBackfill :many
+SELECT r.id, r.method, r.url
+FROM requests r
+JOIN collections c ON c.id = r.collection_id
+WHERE c.workspace_id = $1
+  AND r.source_operation_id = ''
+  AND r.source_spec_id IS NULL
+`
+
+type ListRequestsForOperationBackfillRow struct {
+	ID     pgtype.UUID `json:"id"`
+	Method string      `json:"method"`
+	Url    string      `json:"url"`
+}
+
+func (q *Queries) ListRequestsForOperationBackfill(ctx context.Context, workspaceID pgtype.UUID) ([]ListRequestsForOperationBackfillRow, error) {
+	rows, err := q.db.Query(ctx, listRequestsForOperationBackfill, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRequestsForOperationBackfillRow{}
+	for rows.Next() {
+		var i ListRequestsForOperationBackfillRow
+		if err := rows.Scan(&i.ID, &i.Method, &i.Url); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

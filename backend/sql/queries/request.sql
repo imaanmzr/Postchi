@@ -93,7 +93,8 @@ WHERE c.workspace_id = @workspace_id AND r.collection_id = @collection_id
 ORDER BY c.sort_order, c.name, r.sort_order;
 
 -- name: GetRequestDocsBundle :one
-SELECT r.description, COALESCE(r.api_doc, '{}'), COALESCE(r.source_operation_id, ''), r.collection_id
+SELECT r.description, COALESCE(r.api_doc, '{}'), COALESCE(r.source_operation_id, ''), r.collection_id,
+       r.method, r.url
 FROM requests r
 WHERE r.id = @id;
 
@@ -144,8 +145,27 @@ VALUES (@collection_id, @name, @method, @url, @headers, '[]', '[]', @body, '{}',
 RETURNING id;
 
 -- name: InsertImportedRequest :exec
-INSERT INTO requests (collection_id, name, method, url, headers, params, path_vars, body, auth, settings, pre_request_script, test_script, sort_order, description, created_by)
-VALUES (@collection_id, @name, @method, @url, @headers, @params, @path_vars, @body, @auth, @settings, @pre_request_script, @test_script, @sort_order, @description, @created_by);
+INSERT INTO requests (collection_id, name, method, url, headers, params, path_vars, body, auth, settings, pre_request_script, test_script, sort_order, description, source_operation_id, created_by)
+VALUES (@collection_id, @name, @method, @url, @headers, @params, @path_vars, @body, @auth, @settings, @pre_request_script, @test_script, @sort_order, @description, @source_operation_id, @created_by);
+
+-- name: BackfillRequestOperationIDs :execrows
+UPDATE requests r
+SET source_operation_id = @source_operation_id,
+    updated_at = now()
+FROM collections c
+WHERE r.collection_id = c.id
+  AND c.workspace_id = @workspace_id
+  AND r.id = @request_id
+  AND r.source_operation_id = ''
+  AND r.source_spec_id IS NULL;
+
+-- name: ListRequestsForOperationBackfill :many
+SELECT r.id, r.method, r.url
+FROM requests r
+JOIN collections c ON c.id = r.collection_id
+WHERE c.workspace_id = @workspace_id
+  AND r.source_operation_id = ''
+  AND r.source_spec_id IS NULL;
 
 -- name: ImportSharedRequest :one
 INSERT INTO requests (collection_id, name, method, url, headers, params, path_vars, body, auth, settings,

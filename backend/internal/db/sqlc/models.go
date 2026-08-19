@@ -151,6 +151,20 @@ type Collection struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
+type DocLinkSuggestion struct {
+	ID             pgtype.UUID        `json:"id"`
+	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
+	WorkspaceDocID pgtype.UUID        `json:"workspace_doc_id"`
+	RequestID      pgtype.UUID        `json:"request_id"`
+	Reason         string             `json:"reason"`
+	Confidence     string             `json:"confidence"`
+	Evidence       []byte             `json:"evidence"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ReviewedAt     pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewedBy     pgtype.UUID        `json:"reviewed_by"`
+}
+
 type DocSource struct {
 	ID                   pgtype.UUID        `json:"id"`
 	WorkspaceID          pgtype.UUID        `json:"workspace_id"`

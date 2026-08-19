@@ -7,7 +7,7 @@ func TestBuildDocGraph(t *testing.T) {
 		{Slug: "auth", Title: "Auth", ContentMD: "See [[users]]", LinkedOperationIDs: []string{"login"}},
 		{Slug: "users", Title: "Users", ContentMD: "User docs"},
 	}
-	graph := buildDocGraph(docs, nil)
+	graph := buildDocGraph(docs, nil, nil, nil)
 	if len(graph.Nodes) != 3 {
 		t.Fatalf("expected 3 nodes, got %d", len(graph.Nodes))
 	}

@@ -23,7 +23,7 @@
     <div v-if="loading" class="px-3 py-2 text-xs text-muted">Loading…</div>
 
     <ul v-else class="flex-1 min-h-0 overflow-auto ui-scroll-y py-1">
-      <li v-for="link in links" :key="link.id" class="group px-2 py-1">
+      <li v-for="link in links" :key="link.request_id" class="group px-2 py-1">
         <div class="flex items-center gap-1.5 rounded hover:bg-surface-2">
           <NuxtLink
             :to="requestUrl(link.request_id)"
@@ -31,18 +31,57 @@
           >
             <MethodBadge :method="link.method" class="shrink-0 scale-90" />
             <div class="min-w-0 flex-1">
-              <div class="text-xs font-medium truncate">{{ link.request_name }}</div>
+              <div class="flex items-center gap-1 flex-wrap">
+                <span class="text-xs font-medium truncate">{{ link.request_name }}</span>
+                <span
+                  v-if="link.link_sources.includes('frontmatter')"
+                  class="text-[9px] px-1 py-0.5 rounded"
+                  style="background: var(--color-surface-2); color: var(--color-text-muted)"
+                >auto</span>
+                <span
+                  v-if="link.link_sources.includes('manual')"
+                  class="text-[9px] px-1 py-0.5 rounded"
+                  style="background: var(--color-surface-2); color: var(--color-accent)"
+                >manual</span>
+                <span
+                  v-if="link.link_sources.includes('suggested')"
+                  class="text-[9px] px-1 py-0.5 rounded"
+                  style="background: var(--color-surface-2); color: var(--color-syntax-number)"
+                >suggested</span>
+              </div>
               <div class="text-[10px] text-muted truncate">{{ link.collection_name }}</div>
             </div>
           </NuxtLink>
-          <button
-            type="button"
-            class="text-[10px] text-muted opacity-0 group-hover:opacity-100 hover:text-default shrink-0 px-1"
-            title="Remove link"
-            @click="unlink(link)"
-          >
-            ×
-          </button>
+          <div class="flex flex-col gap-0.5 shrink-0">
+            <template v-if="link.link_sources.includes('suggested') && link.suggestion_id">
+              <button
+                type="button"
+                class="text-[10px] px-1"
+                style="color: var(--color-accent)"
+                title="Accept suggestion"
+                @click="accept(link)"
+              >
+                ✓
+              </button>
+              <button
+                type="button"
+                class="text-[10px] px-1 text-muted hover:text-default"
+                title="Reject suggestion"
+                @click="reject(link)"
+              >
+                ×
+              </button>
+            </template>
+            <button
+              v-else-if="link.link_id"
+              type="button"
+              class="text-[10px] text-muted opacity-0 group-hover:opacity-100 hover:text-default px-1"
+              title="Remove manual link"
+              @click="unlink(link)"
+            >
+              ×
+            </button>
+          </div>
         </div>
       </li>
       <li v-if="!links.length" class="px-3 py-2 text-xs text-muted">No linked requests.</li>
@@ -73,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import type { DocLinkItem } from '~/stores/docs'
+import type { DocRequestLinkItem } from '~/stores/docs'
 import type { RequestItem } from '~/stores/collections'
 import { buildWorkspaceRequestUrl } from '~/utils/docLinks'
 
@@ -87,7 +126,7 @@ const props = defineProps<{
 const docsStore = useDocsStore()
 const api = useApi()
 const toast = useToast()
-const links = ref<DocLinkItem[]>([])
+const links = ref<DocRequestLinkItem[]>([])
 const loading = ref(false)
 const requestPickerOpen = ref(false)
 const workspaceRequests = ref<WorkspaceRequest[]>([])
@@ -106,7 +145,7 @@ async function fetchLinks() {
   if (!props.docId) return
   loading.value = true
   try {
-    links.value = await docsStore.fetchDocLinks(props.workspaceId, props.docId)
+    links.value = await docsStore.fetchDocRequestLinks(props.workspaceId, props.docId)
   } catch {
     links.value = []
   } finally {
@@ -139,10 +178,26 @@ async function onRequestSelected(req: WorkspaceRequest) {
   toast.show(`Linked "${req.name}" successfully.`)
 }
 
-async function unlink(link: DocLinkItem) {
-  await docsStore.deleteDocLink(props.workspaceId, props.docId, link.id)
+async function unlink(link: DocRequestLinkItem) {
+  if (!link.link_id) return
+  await docsStore.deleteDocLink(props.workspaceId, props.docId, link.link_id)
   await fetchLinks()
   await docsStore.fetchGraph(props.workspaceId)
+}
+
+async function accept(link: DocRequestLinkItem) {
+  if (!link.suggestion_id) return
+  await docsStore.acceptSuggestion(props.workspaceId, link.suggestion_id)
+  await fetchLinks()
+  await docsStore.fetchGraph(props.workspaceId)
+  toast.show('Link accepted.')
+}
+
+async function reject(link: DocRequestLinkItem) {
+  if (!link.suggestion_id) return
+  await docsStore.rejectSuggestion(props.workspaceId, link.suggestion_id)
+  await fetchLinks()
+  toast.show('Suggestion dismissed.')
 }
 </script>
 

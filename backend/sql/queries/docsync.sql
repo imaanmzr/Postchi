@@ -58,6 +58,13 @@ WHERE workspace_id = @workspace_id
   AND sqlc.arg(operation_id)::text = ANY(linked_operation_ids)
 ORDER BY source_path, title;
 
+-- name: ListWorkspaceDocsByOperationIDs :many
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+FROM workspace_docs
+WHERE workspace_id = @workspace_id
+  AND linked_operation_ids && @operation_ids::text[]
+ORDER BY source_path, title;
+
 -- name: ClearWorkspaceDocSlugConflict :exec
 DELETE FROM workspace_docs
 WHERE workspace_id = @workspace_id

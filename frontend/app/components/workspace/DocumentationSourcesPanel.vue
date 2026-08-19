@@ -26,9 +26,26 @@
         <p class="text-xs text-muted">
           GitHub: <code>contents:read</code>. GitLab: <code>read_api</code> + <code>read_repository</code> (Reporter role or higher on the project).
         </p>
-        <Button variant="primary" :disabled="creating" @click="createGitSource">
-          {{ creating ? 'Creating…' : 'Add git source' }}
-        </Button>
+        <div class="flex flex-wrap gap-2 items-center">
+          <Button variant="primary" :disabled="creating" @click="createGitSource">
+            {{ creating ? 'Creating…' : 'Add git source' }}
+          </Button>
+          <Button
+            class="text-xs"
+            :disabled="analyzingLinks || backfilling"
+            @click="analyzeDocLinks"
+          >
+            {{ analyzingLinks ? 'Analyzing…' : 'Analyze doc links' }}
+          </Button>
+          <Button
+            class="text-xs"
+            :disabled="backfilling || analyzingLinks"
+            @click="backfillOperationIds"
+          >
+            {{ backfilling ? 'Backfilling…' : 'Backfill API operation IDs' }}
+          </Button>
+        </div>
+        <p v-if="linkAnalyzeMessage" class="text-xs text-muted">{{ linkAnalyzeMessage }}</p>
         <p v-if="syncMessage" class="text-xs text-muted">{{ syncMessage }}</p>
         <p v-if="syncError" class="text-xs text-red-400">{{ syncError }}</p>
       </div>
@@ -66,6 +83,10 @@
             <Button class="text-xs" :disabled="syncing === src.id" @click="syncSource(src.id)">
               {{ syncing === src.id ? 'Syncing…' : 'Sync now' }}
             </Button>
+            <label class="text-[10px] text-muted inline-flex items-center gap-1 cursor-pointer">
+              <input v-model="analyzeAfterSync" type="checkbox" class="rounded">
+              Analyze after sync
+            </label>
             <Button
               class="text-xs text-red-400 hover:text-red-300"
               :disabled="deleting === src.id"
@@ -161,6 +182,9 @@ const deleteOpen = ref(false)
 const deleteTarget = ref<DocSource | null>(null)
 const syncError = ref('')
 const syncMessage = ref('')
+const linkAnalyzeMessage = ref('')
+const analyzingLinks = ref(false)
+const backfilling = ref(false)
 const editingId = ref('')
 const newToken = ref('')
 const tokenName = ref('CI push token')
@@ -285,6 +309,7 @@ async function syncSource(id: string) {
   syncing.value = id
   syncError.value = ''
   syncMessage.value = ''
+  linkAnalyzeMessage.value = ''
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 330_000)
   try {
@@ -299,6 +324,9 @@ async function syncSource(id: string) {
       if (result.errors) parts.push(`(${result.errors} errors)`)
       syncMessage.value = parts.join(' ')
     }
+    if (analyzeAfterSync.value) {
+      await analyzeDocLinks()
+    }
     await load()
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') {
@@ -309,6 +337,36 @@ async function syncSource(id: string) {
   } finally {
     clearTimeout(timer)
     syncing.value = ''
+  }
+}
+
+const analyzeAfterSync = ref(false)
+
+async function analyzeDocLinks() {
+  analyzingLinks.value = true
+  linkAnalyzeMessage.value = ''
+  try {
+    const docsStore = useDocsStore()
+    const result = await docsStore.analyzeLinks(props.workspaceId)
+    linkAnalyzeMessage.value = `Analysis complete: ${result.pending_total ?? 0} pending suggestion(s).`
+  } catch (e) {
+    linkAnalyzeMessage.value = e instanceof Error ? e.message : 'Analyze failed'
+  } finally {
+    analyzingLinks.value = false
+  }
+}
+
+async function backfillOperationIds() {
+  backfilling.value = true
+  linkAnalyzeMessage.value = ''
+  try {
+    const docsStore = useDocsStore()
+    const result = await docsStore.backfillOperationIds(props.workspaceId)
+    linkAnalyzeMessage.value = `Backfilled ${result.updated ?? 0} request(s); ${result.skipped ?? 0} skipped.`
+  } catch (e) {
+    linkAnalyzeMessage.value = e instanceof Error ? e.message : 'Backfill failed'
+  } finally {
+    backfilling.value = false
   }
 }
 

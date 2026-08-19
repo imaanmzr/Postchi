@@ -10,6 +10,7 @@ import (
 	"github.com/imaanmzr/postchi/backend/internal/db"
 	"github.com/imaanmzr/postchi/backend/internal/db/sqlc"
 	"github.com/imaanmzr/postchi/backend/internal/importexport/model"
+	"github.com/imaanmzr/postchi/backend/internal/shared/operationid"
 )
 
 func (h *Handler) persistCollectionTx(ctx context.Context, q *sqlc.Queries, wsID, userID uuid.UUID, col model.Collection, parentID *uuid.UUID) (uuid.UUID, ImportResult, error) {
@@ -71,21 +72,22 @@ func (h *Handler) insertRequestTx(ctx context.Context, q *sqlc.Queries, colID, u
 	authB, _ := json.Marshal(req.Auth)
 	settings, _ := json.Marshal(req.Settings)
 	err := q.InsertImportedRequest(ctx, sqlc.InsertImportedRequestParams{
-		CollectionID:     db.PGUUID(colID),
-		Name:             req.Name,
-		Method:           req.Method,
-		Url:              req.URL,
-		Headers:          headers,
-		Params:           params,
-		PathVars:         pathVars,
-		Body:             body,
-		Auth:             authB,
-		Settings:         settings,
-		PreRequestScript: req.PreRequestScript,
-		TestScript:       req.TestScript,
-		SortOrder:        int32(req.SortOrder),
-		Description:      req.Description,
-		CreatedBy:        db.PGUUID(userID),
+		CollectionID:        db.PGUUID(colID),
+		Name:                req.Name,
+		Method:              req.Method,
+		Url:                 req.URL,
+		Headers:             headers,
+		Params:              params,
+		PathVars:            pathVars,
+		Body:                body,
+		Auth:                authB,
+		Settings:            settings,
+		PreRequestScript:    req.PreRequestScript,
+		TestScript:          req.TestScript,
+		SortOrder:           int32(req.SortOrder),
+		Description:         req.Description,
+		SourceOperationID:   operationid.CanonicalFromMethodURL(req.Method, req.URL),
+		CreatedBy:           db.PGUUID(userID),
 	})
 	if err != nil {
 		return fmt.Errorf("insert request %q: %w", req.Name, err)

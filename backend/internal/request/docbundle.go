@@ -12,6 +12,7 @@ import (
 
 	"github.com/imaanmzr/postchi/backend/internal/db"
 	"github.com/imaanmzr/postchi/backend/internal/db/sqlc"
+	"github.com/imaanmzr/postchi/backend/internal/shared/operationid"
 	"github.com/imaanmzr/postchi/backend/internal/shared/respond"
 )
 
@@ -47,7 +48,7 @@ func (h *Handler) GetDocsBundle(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusInternalServerError, "query failed")
 		return
 	}
-	linked, err := buildLinkedWorkspaceDocs(ctx, h.store, wsID, id, row.SourceOperationID)
+	linked, err := buildLinkedWorkspaceDocs(ctx, h.store, wsID, id, row.Method, row.Url, row.SourceOperationID)
 	if err != nil {
 		respond.Error(w, http.StatusInternalServerError, "query failed")
 		return
@@ -64,31 +65,35 @@ func buildLinkedWorkspaceDocs(
 	store *db.Store,
 	wsID pgtype.UUID,
 	requestID uuid.UUID,
-	operationID string,
+	method, url, operationID string,
 ) ([]LinkedWorkspaceDoc, error) {
 	type entry struct {
-		doc       LinkedWorkspaceDoc
-		manualID  *string
+		doc         LinkedWorkspaceDoc
+		manualID    *string
 		frontmatter bool
 		manual      bool
 	}
 	byDocID := make(map[string]*entry)
 
-	if operationID != "" {
-		rows, err := store.ListWorkspaceDocsByOperation(ctx, sqlc.ListWorkspaceDocsByOperationParams{
-			WorkspaceID: wsID,
-			OperationID: operationID,
+	aliases := operationid.AliasesForRequest(method, url, operationID)
+	if len(aliases) > 0 {
+		rows, err := store.ListWorkspaceDocsByOperationIDs(ctx, sqlc.ListWorkspaceDocsByOperationIDsParams{
+			WorkspaceID:   wsID,
+			OperationIds: aliases,
 		})
 		if err != nil {
 			return nil, err
 		}
 		for _, row := range rows {
+			if !operationid.Matches(row.LinkedOperationIds, aliases) {
+				continue
+			}
 			docID := db.FromPGUUID(row.ID).String()
 			byDocID[docID] = &entry{
 				doc: LinkedWorkspaceDoc{
-					ID:    docID,
-					Slug:  row.Slug,
-					Title: row.Title,
+					ID:        docID,
+					Slug:      row.Slug,
+					Title:     row.Title,
 					ContentMD: row.ContentMd,
 				},
 				frontmatter: true,

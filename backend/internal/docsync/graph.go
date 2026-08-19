@@ -1,12 +1,15 @@
 package docsync
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/imaanmzr/postchi/backend/internal/db"
+	"github.com/imaanmzr/postchi/backend/internal/db/sqlc"
+	"github.com/imaanmzr/postchi/backend/internal/shared/operationid"
 	"github.com/imaanmzr/postchi/backend/internal/shared/respond"
 )
 
@@ -33,7 +36,20 @@ type ManualGraphLink struct {
 	RequestName string
 }
 
-func buildDocGraph(docs []WorkspaceDoc, manual []ManualGraphLink) DocGraph {
+type FrontmatterGraphLink struct {
+	DocSlug     string
+	RequestID   string
+	RequestName string
+	OperationID string
+}
+
+type SuggestedGraphLink struct {
+	DocSlug     string
+	RequestID   string
+	RequestName string
+}
+
+func buildDocGraph(docs []WorkspaceDoc, manual []ManualGraphLink, frontmatter []FrontmatterGraphLink, suggested []SuggestedGraphLink) DocGraph {
 	idx := buildDocIndex(docs)
 	nodeSeen := make(map[string]struct{})
 	edgeSeen := make(map[string]struct{})
@@ -81,6 +97,22 @@ func buildDocGraph(docs []WorkspaceDoc, manual []ManualGraphLink) DocGraph {
 		addEdge(m.DocSlug, m.RequestID, "manual")
 	}
 
+	for _, fm := range frontmatter {
+		addNode(fm.DocSlug, fm.DocSlug, "doc")
+		addNode(fm.RequestID, fm.RequestName, "request")
+		if fm.OperationID != "" {
+			addNode(fm.OperationID, fm.OperationID, "operation")
+			addEdge(fm.DocSlug, fm.OperationID, "operation")
+		}
+		addEdge(fm.DocSlug, fm.RequestID, "frontmatter")
+	}
+
+	for _, s := range suggested {
+		addNode(s.DocSlug, s.DocSlug, "doc")
+		addNode(s.RequestID, s.RequestName, "request")
+		addEdge(s.DocSlug, s.RequestID, "suggested")
+	}
+
 	if nodes == nil {
 		nodes = []GraphNode{}
 	}
@@ -115,5 +147,57 @@ func (h *Handler) GetDocGraph(w http.ResponseWriter, r *http.Request) {
 			RequestName: row.RequestName,
 		})
 	}
-	respond.JSON(w, http.StatusOK, buildDocGraph(docs, manual))
+	reqRows, err := h.store.ListRequestsByWorkspace(ctx, db.PGUUID(wsID))
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	frontmatter := buildFrontmatterGraphLinks(docs, reqRows)
+	suggested := buildSuggestedGraphLinks(ctx, h, wsID)
+	respond.JSON(w, http.StatusOK, buildDocGraph(docs, manual, frontmatter, suggested))
+}
+
+func buildSuggestedGraphLinks(ctx context.Context, h *Handler, wsID uuid.UUID) []SuggestedGraphLink {
+	rows, err := h.store.ListDocLinkSuggestions(ctx, sqlc.ListDocLinkSuggestionsParams{
+		WorkspaceID: db.PGUUID(wsID),
+		Status:      "pending",
+	})
+	if err != nil {
+		return nil
+	}
+	out := make([]SuggestedGraphLink, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, SuggestedGraphLink{
+			DocSlug:     row.DocSlug,
+			RequestID:   db.FromPGUUID(row.RequestID).String(),
+			RequestName: row.RequestName,
+		})
+	}
+	return out
+}
+
+func buildFrontmatterGraphLinks(docs []WorkspaceDoc, requests []sqlc.ListRequestsByWorkspaceRow) []FrontmatterGraphLink {
+	var out []FrontmatterGraphLink
+	for _, doc := range docs {
+		if len(doc.LinkedOperationIDs) == 0 {
+			continue
+		}
+		for _, req := range requests {
+			aliases := operationid.AliasesForRequest(req.Method, req.Url, req.SourceOperationID)
+			if !operationid.Matches(doc.LinkedOperationIDs, aliases) {
+				continue
+			}
+			opID := req.SourceOperationID
+			if opID == "" && len(aliases) > 0 {
+				opID = aliases[0]
+			}
+			out = append(out, FrontmatterGraphLink{
+				DocSlug:     doc.Slug,
+				RequestID:   db.FromPGUUID(req.ID).String(),
+				RequestName: req.Name,
+				OperationID: opID,
+			})
+		}
+	}
+	return out
 }

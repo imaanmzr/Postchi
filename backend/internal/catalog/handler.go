@@ -12,6 +12,7 @@ import (
 
 	"github.com/imaanmzr/postchi/backend/internal/db"
 	"github.com/imaanmzr/postchi/backend/internal/db/sqlc"
+	"github.com/imaanmzr/postchi/backend/internal/shared/operationid"
 	"github.com/imaanmzr/postchi/backend/internal/shared/respond"
 )
 
@@ -111,6 +112,10 @@ func (h *Handler) buildCatalog(r *http.Request, wsID uuid.UUID, collectionID str
 	if err != nil {
 		return resp, err
 	}
+	frontmatterLinked, err := h.frontmatterLinkedRequestIDs(r.Context(), pgWS)
+	if err != nil {
+		return resp, err
+	}
 
 	colMap := map[string]CollectionSummary{}
 	if collectionID != "" {
@@ -146,13 +151,13 @@ func (h *Handler) buildCatalog(r *http.Request, wsID uuid.UUID, collectionID str
 		if err != nil {
 			return resp, err
 		}
-		h.scanCatalogEndpointRows(rows, colMap, f, linkedRequestIDs, &resp)
+		h.scanCatalogEndpointRows(rows, colMap, f, linkedRequestIDs, frontmatterLinked, &resp)
 	} else {
 		rows, err := h.store.ListCatalogEndpointsByWorkspace(r.Context(), pgWS)
 		if err != nil {
 			return resp, err
 		}
-		h.scanCatalogEndpointRows(rows, colMap, f, linkedRequestIDs, &resp)
+		h.scanCatalogEndpointRows(rows, colMap, f, linkedRequestIDs, frontmatterLinked, &resp)
 	}
 
 	for _, col := range colMap {
@@ -187,7 +192,40 @@ func (h *Handler) manualLinkedRequestIDs(ctx context.Context, wsID pgtype.UUID) 
 	return out, nil
 }
 
-func (h *Handler) scanCatalogEndpointRows(rows any, colMap map[string]CollectionSummary, f catalogFilters, linkedRequestIDs map[string]bool, resp *CatalogResponse) {
+func (h *Handler) frontmatterLinkedRequestIDs(ctx context.Context, wsID pgtype.UUID) (map[string]bool, error) {
+	docRows, err := h.store.ListWorkspaceDocs(ctx, wsID)
+	if err != nil {
+		return nil, err
+	}
+	reqRows, err := h.store.ListRequestsByWorkspace(ctx, wsID)
+	if err != nil {
+		return nil, err
+	}
+	type docOps struct {
+		linked []string
+	}
+	docs := make([]docOps, 0, len(docRows))
+	for _, d := range docRows {
+		if len(d.LinkedOperationIds) == 0 {
+			continue
+		}
+		docs = append(docs, docOps{linked: d.LinkedOperationIds})
+	}
+	out := make(map[string]bool)
+	for _, req := range reqRows {
+		rid := db.FromPGUUID(req.ID).String()
+		aliases := operationid.AliasesForRequest(req.Method, req.Url, req.SourceOperationID)
+		for _, doc := range docs {
+			if operationid.Matches(doc.linked, aliases) {
+				out[rid] = true
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
+func (h *Handler) scanCatalogEndpointRows(rows any, colMap map[string]CollectionSummary, f catalogFilters, linkedRequestIDs, frontmatterLinked map[string]bool, resp *CatalogResponse) {
 	switch typed := rows.(type) {
 	case []sqlc.ListCatalogEndpointsByWorkspaceRow:
 		for _, row := range typed {
@@ -197,7 +235,7 @@ func (h *Handler) scanCatalogEndpointRows(rows any, colMap map[string]Collection
 				Description: row.Description, ApiDoc: row.ApiDoc,
 				SourceSpecID: db.FromPGUUID(row.SourceSpecID), SourceValid: row.SourceSpecID.Valid,
 				SourceOperationID: row.SourceOperationID,
-			}, colMap, f, linkedRequestIDs, resp)
+			}, colMap, f, linkedRequestIDs, frontmatterLinked, resp)
 		}
 	case []sqlc.ListCatalogEndpointsByWorkspaceAndCollectionRow:
 		for _, row := range typed {
@@ -207,12 +245,12 @@ func (h *Handler) scanCatalogEndpointRows(rows any, colMap map[string]Collection
 				Description: row.Description, ApiDoc: row.ApiDoc,
 				SourceSpecID: db.FromPGUUID(row.SourceSpecID), SourceValid: row.SourceSpecID.Valid,
 				SourceOperationID: row.SourceOperationID,
-			}, colMap, f, linkedRequestIDs, resp)
+			}, colMap, f, linkedRequestIDs, frontmatterLinked, resp)
 		}
 	}
 }
 
-func (h *Handler) applyEndpoint(row catalogEndpointRow, colMap map[string]CollectionSummary, f catalogFilters, linkedRequestIDs map[string]bool, resp *CatalogResponse) {
+func (h *Handler) applyEndpoint(row catalogEndpointRow, colMap map[string]CollectionSummary, f catalogFilters, linkedRequestIDs, frontmatterLinked map[string]bool, resp *CatalogResponse) {
 	ep := EndpointItem{
 		ID:             row.ID.String(),
 		CollectionID:   row.CollectionID.String(),
@@ -231,7 +269,8 @@ func (h *Handler) applyEndpoint(row catalogEndpointRow, colMap map[string]Collec
 		ep.SourceSpecID = &s
 	}
 	ep.Tags, ep.ResponseCodes = parseApiDocMeta(row.ApiDoc)
-	ep.DocsComplete = isEndpointDocumented(row.Description, row.ApiDoc) || linkedRequestIDs[ep.ID]
+	ep.DocsComplete = isEndpointDocumented(row.Description, row.ApiDoc) ||
+		linkedRequestIDs[ep.ID] || frontmatterLinked[ep.ID]
 
 	if f.Method != "" && ep.Method != f.Method {
 		return
