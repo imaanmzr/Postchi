@@ -291,6 +291,10 @@ body {
   min-height: 1.5rem;
 }
 
+.collection-tree .tree-folder-row {
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
 .collection-tree .tree-folder-row:hover,
 .collection-tree .tree-request-row:hover {
   background: var(--color-surface-2);

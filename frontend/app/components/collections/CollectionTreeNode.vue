@@ -229,6 +229,7 @@ function onFolderRowClick() {
     toggleChecked('collection', props.node.id)
     return
   }
+  emit('toggle', props.node.id)
   emit('select-folder', props.node.id)
 }
 

@@ -14,6 +14,63 @@ import (
 	"github.com/imaanmzr/postchi/backend/internal/shared/respond"
 )
 
+const docAlreadyLinkedMsg = "This document is already linked to this request."
+
+func normalizeDocPath(path string) string {
+	path = strings.ToLower(strings.TrimSpace(path))
+	path = strings.ReplaceAll(path, " ", "")
+	path = strings.ReplaceAll(path, "\\", "/")
+	return path
+}
+
+func docPathsForCompare(slug, sourcePath string) []string {
+	out := make([]string, 0, 2)
+	if p := normalizeDocPath(sourcePath); p != "" {
+		out = append(out, p)
+	}
+	if p := normalizeDocPath(strings.ReplaceAll(slug, "-", "/")); p != "" {
+		out = append(out, p)
+	}
+	return out
+}
+
+func docsOverlap(slugA, pathA, slugB, pathB string) bool {
+	if slugA == slugB {
+		return true
+	}
+	pathsA := docPathsForCompare(slugA, pathA)
+	pathsB := docPathsForCompare(slugB, pathB)
+	for _, a := range pathsA {
+		for _, b := range pathsB {
+			if a == b {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (h *Handler) requestAlreadyLinkedToDoc(
+	ctx context.Context,
+	requestID uuid.UUID,
+	target sqlc.GetWorkspaceDocByIDRow,
+) (bool, error) {
+	existing, err := h.store.ListManualDocLinksForRequest(ctx, db.PGUUID(requestID))
+	if err != nil {
+		return false, err
+	}
+	targetID := db.FromPGUUID(target.ID).String()
+	for _, row := range existing {
+		if db.FromPGUUID(row.ID).String() == targetID {
+			return true, nil
+		}
+		if docsOverlap(row.Slug, row.SourcePath, target.Slug, target.SourcePath) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 type DocLinkItem struct {
 	ID                string `json:"id"`
 	RequestID         string `json:"request_id"`
@@ -116,6 +173,23 @@ func (h *Handler) CreateDocLink(w http.ResponseWriter, r *http.Request) {
 			WorkspaceID: db.PGUUID(wsID),
 		}); err != nil {
 			respond.Error(w, http.StatusBadRequest, "request not in workspace")
+			return
+		}
+		targetDoc, err := h.store.GetWorkspaceDocByID(ctx, sqlc.GetWorkspaceDocByIDParams{
+			ID:          db.PGUUID(docID),
+			WorkspaceID: db.PGUUID(wsID),
+		})
+		if err != nil {
+			respond.Error(w, http.StatusNotFound, "doc not found")
+			return
+		}
+		alreadyLinked, err := h.requestAlreadyLinkedToDoc(ctx, rid, targetDoc)
+		if err != nil {
+			respond.Error(w, http.StatusInternalServerError, "query failed")
+			return
+		}
+		if alreadyLinked {
+			respond.Error(w, http.StatusConflict, docAlreadyLinkedMsg)
 			return
 		}
 		item, err := h.createSingleDocLink(ctx, wsID, docID, rid)

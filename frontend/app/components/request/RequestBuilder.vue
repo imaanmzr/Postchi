@@ -150,7 +150,12 @@ import { Code2, GitBranch, Save, Send, Share2 } from 'lucide-vue-next'
 import type { RequestItem } from '~/stores/collections'
 import { inheritSourceLabel, resolveRequestInheritedAuth } from '~/utils/authInheritance'
 
-const props = defineProps<{ request: RequestItem; workspaceId?: string }>()
+const props = withDefaults(defineProps<{
+  request: RequestItem
+  workspaceId?: string
+  initialTab?: string
+}>(), {})
+
 const emit = defineEmits<{ save: [req: RequestItem]; execute: [req: RequestItem]; dirty: [] }>()
 
 const colStore = useCollectionsStore()
@@ -168,7 +173,13 @@ const tabItems = [
   { id: 'Scripts', label: 'Scripts' },
   { id: 'Settings', label: 'Settings' },
 ]
-const activeTab = ref('Body')
+const validTabIds = new Set(tabItems.map(t => t.id))
+
+function resolveTab(tab?: string) {
+  return tab && validTabIds.has(tab) ? tab : 'Body'
+}
+
+const activeTab = ref(resolveTab(props.initialTab))
 const local = ref({ ...props.request })
 
 const authInheritLabel = computed(() => {
@@ -182,9 +193,13 @@ const authInheritLabel = computed(() => {
   return inheritSourceLabel(resolved.source)
 })
 
+watch(() => props.initialTab, (tab) => {
+  if (tab) activeTab.value = resolveTab(tab)
+})
+
 watch(() => props.request.id, async () => {
   local.value = { ...props.request }
-  activeTab.value = 'Body'
+  if (!props.initialTab) activeTab.value = 'Body'
   if (props.request.is_template && props.request.id) {
     const children = await colStore.listChildren(props.request.id)
     childCount.value = children.length

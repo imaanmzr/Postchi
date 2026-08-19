@@ -113,6 +113,8 @@ type SidebarMode = 'collections' | 'history'
 
 const props = defineProps<{ workspaceId: string; workspaceName: string; loading?: boolean }>()
 
+const route = useRoute()
+const router = useRouter()
 const colStore = useCollectionsStore()
 const envStore = useEnvironmentsStore()
 const histStore = useHistoryStore()
@@ -121,7 +123,7 @@ const execStore = useExecutionStore()
 
 useWebSocket(computed(() => props.workspaceId))
 
-const sidebarWidth = 260
+const sidebarWidth = 300
 const DOCK_SIZE_KEY = 'postchi:dock-size'
 const DOCK_COLLAPSED_KEY = 'postchi:dock-collapsed'
 const DOCK_POSITION_KEY = 'postchi:dock-position'
@@ -289,6 +291,27 @@ watch(activeTab, async (tab) => {
     await colStore.fetchCollection(tab.entityId)
   }
 }, { immediate: true })
+
+function restoreRequestFromRoute() {
+  const requestId = route.query.request
+  if (typeof requestId !== 'string') return
+
+  const req = colStore.requests.find(r => r.id === requestId)
+  if (!req) return
+
+  onOpenRequest(req)
+
+  const nextQuery = { ...route.query }
+  delete nextQuery.request
+  delete nextQuery.tab
+  void router.replace({ query: nextQuery })
+}
+
+watch(
+  () => [route.query.request, colStore.requests.length] as const,
+  () => restoreRequestFromRoute(),
+  { immediate: true },
+)
 
 function onOpenRequest(req: any) {
   sidebarMode.value = 'collections'

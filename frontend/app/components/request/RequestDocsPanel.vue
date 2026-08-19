@@ -85,11 +85,13 @@
           <Button
             v-if="editable && workspaceId"
             class="text-xs"
-            @click="docPickerOpen = true"
+            @click="openDocPicker"
           >
             Link doc page
           </Button>
         </div>
+
+        <p v-if="linkError" class="text-xs text-red-400 mb-2">{{ linkError }}</p>
 
         <div v-if="linkedDocs.length" class="space-y-2">
           <div
@@ -179,6 +181,7 @@
 import type { RequestItem } from '~/stores/collections'
 import type { DocsBundle, LinkedWorkspaceDoc } from '~/stores/docs'
 import type { DocSummary } from '~/utils/docsTree'
+import { DOC_ALREADY_LINKED_MESSAGE, isSameDoc } from '~/utils/docLinks'
 
 const props = withDefaults(defineProps<{
   request: RequestItem
@@ -197,6 +200,7 @@ const bundleLoading = ref(false)
 const docPickerOpen = ref(false)
 const previewDoc = ref<LinkedWorkspaceDoc | null>(null)
 const unlinkingId = ref<string | null>(null)
+const linkError = ref<string | null>(null)
 
 const isDescriptionDirty = computed(
   () => description.value !== baselineDescription.value,
@@ -234,10 +238,25 @@ const responseCodes = computed(() => {
   })
 })
 
-const pickerDocs = computed(() => {
-  const linkedIds = new Set(linkedDocs.value.map(d => d.id))
-  return docsStore.summaries.filter(s => !linkedIds.has(s.id))
-})
+const pickerDocs = computed(() =>
+  docsStore.summaries.filter(doc => !isDocLinked(doc)),
+)
+
+function linkedDocIdentity(doc: LinkedWorkspaceDoc | DocSummary) {
+  const source_path = 'source_path' in doc
+    ? doc.source_path
+    : docsStore.summaryBySlug(doc.slug)?.source_path ?? null
+  return {
+    id: doc.id,
+    slug: doc.slug,
+    source_path,
+  }
+}
+
+function isDocLinked(doc: DocSummary): boolean {
+  const candidate = linkedDocIdentity(doc)
+  return linkedDocs.value.some(linked => isSameDoc(candidate, linkedDocIdentity(linked)))
+}
 
 function resetDescriptionFromRequest() {
   const text = props.request.description || ''
@@ -247,6 +266,11 @@ function resetDescriptionFromRequest() {
 
 function docWorkspacePath(slug: string) {
   return `/workspaces/${props.workspaceId}/docs/${encodeURIComponent(slug)}`
+}
+
+function openDocPicker() {
+  linkError.value = null
+  docPickerOpen.value = true
 }
 
 function docExcerpt(doc: LinkedWorkspaceDoc): string {
@@ -300,8 +324,18 @@ watch(docPickerOpen, (open) => {
 
 async function onDocSelected(doc: DocSummary) {
   if (!props.workspaceId) return
-  await docsStore.createDocLink(props.workspaceId, doc.id, { request_id: props.request.id })
-  await fetchBundle()
+  linkError.value = null
+  if (isDocLinked(doc)) {
+    linkError.value = DOC_ALREADY_LINKED_MESSAGE
+    return
+  }
+  try {
+    await docsStore.createDocLink(props.workspaceId, doc.id, { request_id: props.request.id })
+    docPickerOpen.value = false
+    await fetchBundle()
+  } catch (e: unknown) {
+    linkError.value = e instanceof Error ? e.message : 'Failed to link document'
+  }
 }
 
 async function unlinkDoc(doc: LinkedWorkspaceDoc) {
