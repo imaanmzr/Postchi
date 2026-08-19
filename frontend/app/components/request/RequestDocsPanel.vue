@@ -204,6 +204,7 @@ const emit = defineEmits<{ save: [req: RequestItem]; 'docs-changed': [] }>()
 
 const api = useApi()
 const docsStore = useDocsStore()
+const toast = useToast()
 const description = ref('')
 const baselineDescription = ref('')
 const bundle = ref<DocsBundle | null>(null)
@@ -346,6 +347,7 @@ async function onDocSelected(doc: DocSummary) {
     docPickerOpen.value = false
     await fetchBundle()
     emit('docs-changed')
+    toast.show(`Linked "${doc.title}" successfully.`)
   } catch (e: unknown) {
     linkError.value = e instanceof Error ? e.message : 'Failed to link document'
   }

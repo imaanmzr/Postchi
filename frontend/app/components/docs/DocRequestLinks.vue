@@ -86,6 +86,7 @@ const props = defineProps<{
 
 const docsStore = useDocsStore()
 const api = useApi()
+const toast = useToast()
 const links = ref<DocLinkItem[]>([])
 const loading = ref(false)
 const requestPickerOpen = ref(false)
@@ -135,6 +136,7 @@ async function onRequestSelected(req: WorkspaceRequest) {
   await docsStore.createDocLink(props.workspaceId, props.docId, { request_id: req.id })
   await fetchLinks()
   await docsStore.fetchGraph(props.workspaceId)
+  toast.show(`Linked "${req.name}" successfully.`)
 }
 
 async function unlink(link: DocLinkItem) {
