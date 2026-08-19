@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var sectionRe = regexp.MustCompile(`^\s*([a-z0-9:_-]+)\s*\{\s*$`)
+var sectionRe = regexp.MustCompile(`(?i)^\s*([a-z0-9:_-]+)\s*\{\s*$`)
 
 type ParsedBru struct {
 	Name     string
@@ -40,7 +40,8 @@ type KVExpr struct {
 }
 
 func Parse(content string) ParsedBru {
-	lines := strings.Split(content, "\n")
+	content = strings.TrimPrefix(content, "\ufeff")
+	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
 	var current string
 	var buf strings.Builder
 	sections := map[string]string{}
@@ -66,6 +67,8 @@ func Parse(content string) ParsedBru {
 			if strings.HasPrefix(trim, "name:") {
 				name = strings.TrimSpace(strings.TrimPrefix(trim, "name:"))
 			}
+			buf.WriteString(line)
+			buf.WriteString("\n")
 			continue
 		}
 		if current != "" {

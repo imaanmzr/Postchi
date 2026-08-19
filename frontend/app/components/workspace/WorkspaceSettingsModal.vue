@@ -76,7 +76,10 @@
         </template>
 
         <template v-else-if="tab === 'api-sync'">
-          <ApiSpecManager :workspace-id="props.workspaceId" />
+          <div class="space-y-4">
+            <BrunoGitImportPanel :workspace-id="props.workspaceId" />
+            <ApiSpecManager :workspace-id="props.workspaceId" />
+          </div>
         </template>
 
         <template v-else-if="tab === 'documentation'">

@@ -3,7 +3,8 @@
     <section>
       <h3 class="font-medium mb-2">Git markdown docs</h3>
       <p class="text-xs text-muted mb-3">
-        Paste a GitHub or GitLab repository URL — browser links like <code>/-/tree/main/docs</code> work too.
+        Sync <code>.md</code> documentation from GitHub or GitLab — browser links like <code>/-/tree/main/docs</code> work too.
+        To import Bruno API collections, use <strong>API Sync → Import Bruno collection from Git</strong>.
       </p>
       <div class="space-y-2 mb-3">
         <Input v-model="gitForm.name" placeholder="Source name" />
@@ -127,6 +128,12 @@
 </template>
 
 <script setup lang="ts">
+import {
+  applyGitLabBrowseUrlHints,
+  detectedGitProvider,
+  gitRepoConfigPayload,
+} from '~/utils/gitRepoForm'
+
 interface DocSource {
   id: string
   name: string
@@ -174,21 +181,9 @@ const editForm = ref({
   access_token: '',
 })
 
-function applyBrowseUrlHints(form: { repo_url: string, branch: string, path_prefix: string }) {
-  const url = form.repo_url.trim()
-  const treeIdx = url.indexOf('/-/tree/')
-  if (treeIdx < 0) return
-  const rest = url.slice(treeIdx + '/-/tree/'.length)
-  const slash = rest.indexOf('/')
-  const branch = slash >= 0 ? rest.slice(0, slash) : rest.split('?')[0]
-  const folder = slash >= 0 ? rest.slice(slash + 1).split('?')[0] : ''
-  if (branch) form.branch = branch
-  form.path_prefix = folder.replace(/\/$/, '')
-}
-
-watch(() => gitForm.value.repo_url, () => applyBrowseUrlHints(gitForm.value))
+watch(() => gitForm.value.repo_url, () => applyGitLabBrowseUrlHints(gitForm.value))
 watch(() => editForm.value.repo_url, () => {
-  if (editingId.value) applyBrowseUrlHints(editForm.value)
+  if (editingId.value) applyGitLabBrowseUrlHints(editForm.value)
 })
 
 onMounted(async () => {
@@ -201,23 +196,11 @@ async function load() {
 }
 
 function detectedProvider(repoUrl: string): string {
-  const trimmed = repoUrl.trim()
-  const lower = trimmed.toLowerCase()
-  if (!lower.includes('://')) return ''
-  if (lower.includes('gitlab') || lower.includes('/-/tree/') || lower.includes('/-/blob/')) return 'GitLab'
-  if (lower.includes('github')) return 'GitHub'
-  try {
-    const host = new URL(trimmed).hostname.toLowerCase()
-    if (host.includes('gitlab')) return 'GitLab'
-    if (host.includes('github')) return 'GitHub'
-  } catch {
-    return ''
-  }
-  return 'GitHub'
+  return detectedGitProvider(repoUrl)
 }
 
 function providerLabel(src: DocSource) {
-  const p = src.config?.provider || detectedProvider(src.config?.repo_url || '').toLowerCase()
+  const p = src.config?.provider || detectedGitProvider(src.config?.repo_url || '').toLowerCase()
   return p === 'gitlab' ? 'GitLab' : 'GitHub'
 }
 
@@ -249,21 +232,13 @@ async function confirmDeleteSource() {
   }
 }
 
-function sourceConfigPayload(form: { repo_url: string, branch: string, path_prefix: string }) {
-  return {
-    repo_url: form.repo_url,
-    branch: form.branch || 'main',
-    path_prefix: form.path_prefix,
-  }
-}
-
 async function createGitSource() {
   creating.value = true
   try {
     await api.post(`/api/workspaces/${props.workspaceId}/doc-sources`, {
       name: gitForm.value.name,
       source_type: 'git',
-      config: sourceConfigPayload(gitForm.value),
+      config: gitRepoConfigPayload(gitForm.value),
       access_token: gitForm.value.access_token || undefined,
     })
     gitForm.value.access_token = ''
@@ -293,7 +268,7 @@ async function updateSource(id: string) {
   try {
     const body: Record<string, unknown> = {
       name: editForm.value.name,
-      config: sourceConfigPayload(editForm.value),
+      config: gitRepoConfigPayload(editForm.value),
     }
     if (editForm.value.access_token) {
       body.access_token = editForm.value.access_token

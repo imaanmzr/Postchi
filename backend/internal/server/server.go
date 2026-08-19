@@ -13,10 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
-	"github.com/imaanmzr/postchi/backend/internal/auth"
-	"github.com/imaanmzr/postchi/backend/internal/collab"
 	"github.com/imaanmzr/postchi/backend/internal/apispec"
+	"github.com/imaanmzr/postchi/backend/internal/auth"
 	"github.com/imaanmzr/postchi/backend/internal/catalog"
+	"github.com/imaanmzr/postchi/backend/internal/collab"
 	"github.com/imaanmzr/postchi/backend/internal/collection"
 	"github.com/imaanmzr/postchi/backend/internal/db"
 	"github.com/imaanmzr/postchi/backend/internal/docsync"
@@ -126,6 +126,7 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 				r.With(wsTokenH.RequireScope("spec:push")).Post("/api-specs/push", apispecH.Push)
 				r.With(wsH.RequireRole("viewer")).Get("/api-specs", apispecH.List)
 				r.With(wsH.RequireRole("editor")).Post("/api-specs", apispecH.Create)
+				r.With(wsH.RequireRole("editor")).Post("/imports/bruno/git", impH.ImportBrunoGit)
 			})
 
 			r.Post("/collections", colH.Create)

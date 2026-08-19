@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -120,6 +122,123 @@ func TestHandlerIntegration(t *testing.T) {
 			t.Fatalf("expected failure for empty import, got 201")
 		}
 		_ = tokens
+	})
+
+	t.Run("nested Git Bruno repository imports transactionally", func(t *testing.T) {
+		gitServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Private-Token") != "gitlab-token" {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			escapedPath := r.URL.EscapedPath()
+			switch {
+			case strings.Contains(r.URL.Path, "/repository/tree"):
+				_, _ = w.Write([]byte(`[
+					{"path":"collection.bru","type":"blob"},
+					{"path":"Orders/folder.bru","type":"blob"},
+					{"path":"Orders/list.bru","type":"blob"},
+					{"path":"health.bru","type":"blob"},
+					{"path":"environments/local.bru","type":"blob"},
+					{"path":"README.md","type":"blob"}
+				]`))
+			case strings.Contains(escapedPath, "collection%252Ebru/raw") || strings.Contains(escapedPath, "collection%2Ebru/raw"):
+				_, _ = w.Write([]byte("meta {\n  name: Repository API\n  type: collection\n}\n"))
+			case strings.Contains(escapedPath, "Orders%252Ffolder%252Ebru/raw") || strings.Contains(escapedPath, "Orders%2Ffolder%2Ebru/raw"):
+				_, _ = w.Write([]byte("meta {\n  name: Orders\n  seq: 1\n}\n"))
+			case strings.Contains(escapedPath, "Orders%252Flist%252Ebru/raw") || strings.Contains(escapedPath, "Orders%2Flist%2Ebru/raw"):
+				_, _ = w.Write([]byte("meta {\n  name: List orders\n  type: http\n  seq: 1\n}\n\nget {\n  url: https://example.com/orders\n}\n"))
+			case strings.Contains(escapedPath, "health%252Ebru/raw") || strings.Contains(escapedPath, "health%2Ebru/raw"):
+				_, _ = w.Write([]byte("meta {\n  name: Health\n  type: http\n  seq: 1\n}\n\nget {\n  url: https://example.com/health\n}\n"))
+			default:
+				http.NotFound(w, r)
+			}
+		}))
+		defer gitServer.Close()
+
+		body := fmt.Sprintf(`{
+			"name":"Imported Git API",
+			"repo_url":%q,
+			"branch":"main",
+			"path_prefix":"",
+			"access_token":"gitlab-token"
+		}`, gitServer.URL+"/group/repository")
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/workspaces/"+wsID.String()+"/imports/bruno/git", strings.NewReader(body))
+		routeContext := chi.NewRouteContext()
+		routeContext.URLParams.Add("id", wsID.String())
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeContext))
+		req = req.WithContext(context.WithValue(req.Context(), auth.UserIDKey, userID.String()))
+		h.ImportBrunoGit(rr, req)
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+		}
+		var result ImportResult
+		if err := json.Unmarshal(rr.Body.Bytes(), &result); err != nil {
+			t.Fatal(err)
+		}
+		if result.Collections != 2 || result.Requests != 2 || result.CollectionID == "" {
+			t.Fatalf("unexpected result: %+v", result)
+		}
+
+		collections, err := store.ListCollectionsByWorkspace(ctx, appdb.PGUUID(wsID))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var rootFound, childFound bool
+		for _, collection := range collections {
+			if collection.Name == "Imported Git API" {
+				rootFound = true
+			}
+			if collection.Name == "Orders" && collection.ParentID.Valid {
+				childFound = true
+			}
+		}
+		if !rootFound || !childFound {
+			t.Fatalf("expected root and nested collection, got %+v", collections)
+		}
+	})
+
+	t.Run("malformed Git repository leaves no partial collection", func(t *testing.T) {
+		before, err := store.ListCollectionsByWorkspace(ctx, appdb.PGUUID(wsID))
+		if err != nil {
+			t.Fatal(err)
+		}
+		gitServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case strings.Contains(r.URL.Path, "/repository/tree"):
+				_, _ = w.Write([]byte(`[
+					{"path":"collection.bru","type":"blob"},
+					{"path":"broken.bru","type":"blob"}
+				]`))
+			case strings.Contains(r.URL.EscapedPath(), "collection%2Ebru/raw") || strings.Contains(r.URL.EscapedPath(), "collection%252Ebru/raw"):
+				_, _ = w.Write([]byte("meta {\n  name: API\n  type: collection\n}\n"))
+			case strings.Contains(r.URL.EscapedPath(), "broken%2Ebru/raw") || strings.Contains(r.URL.EscapedPath(), "broken%252Ebru/raw"):
+				_, _ = w.Write([]byte("meta {\n  name: Broken\n  type: http\n}\n"))
+			default:
+				http.NotFound(w, r)
+			}
+		}))
+		defer gitServer.Close()
+
+		body := fmt.Sprintf(`{"name":"Must not persist","repo_url":%q,"access_token":"token"}`,
+			gitServer.URL+"/group/repository")
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/workspaces/"+wsID.String()+"/imports/bruno/git", strings.NewReader(body))
+		routeContext := chi.NewRouteContext()
+		routeContext.URLParams.Add("id", wsID.String())
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeContext))
+		req = req.WithContext(context.WithValue(req.Context(), auth.UserIDKey, userID.String()))
+		h.ImportBrunoGit(rr, req)
+		if rr.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+		}
+		after, err := store.ListCollectionsByWorkspace(ctx, appdb.PGUUID(wsID))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(after) != len(before) {
+			t.Fatalf("malformed import persisted collections: before=%d after=%d", len(before), len(after))
+		}
 	})
 }
 

@@ -2,35 +2,70 @@
   <Teleport to="body">
     <div class="fixed inset-0 z-50 flex items-center justify-center">
       <div class="absolute inset-0 ui-overlay" @click="$emit('close')" />
-      <div class="relative z-10 w-full max-w-lg rounded-lg p-5" style="background: var(--surface); border: 1px solid var(--border)">
+      <div class="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg p-5" style="background: var(--surface); border: 1px solid var(--border)">
         <h2 class="text-lg font-semibold mb-4">Import / Export</h2>
 
         <div class="space-y-4">
           <div>
-            <label class="text-sm block mb-1">Format</label>
-            <Select v-model="format">
-              <option value="auto">Auto-detect</option>
-              <option value="bruno">Bruno (.bru / .zip)</option>
-              <option value="opencollection">Bruno OpenCollection (.yml / .yaml)</option>
-              <option value="postman">Postman v2.1 (.json)</option>
-              <option value="openapi">OpenAPI 3.0/3.1 (.json / .yaml)</option>
+            <label class="text-sm block mb-1">Import source</label>
+            <Select v-model="importSource">
+              <option value="file">Upload a file</option>
+              <option value="git">Import Bruno from Git</option>
             </Select>
-            <p v-if="detectedFormat" class="text-xs mt-1" style="color: var(--text-muted)">
-              Detected: {{ formatLabel(detectedFormat) }}
-            </p>
           </div>
 
-          <div>
-            <label class="text-sm block mb-1">Import file</label>
-            <input type="file" class="text-sm ui-input w-full" @change="onFile" />
-          </div>
+          <template v-if="importSource === 'file'">
+            <div>
+              <label class="text-sm block mb-1">Format</label>
+              <Select v-model="format">
+                <option value="auto">Auto-detect</option>
+                <option value="bruno">Bruno (.bru / .zip)</option>
+                <option value="opencollection">Bruno OpenCollection (.yml / .yaml)</option>
+                <option value="postman">Postman v2.1 (.json)</option>
+                <option value="openapi">OpenAPI 3.0/3.1 (.json / .yaml)</option>
+              </Select>
+              <p v-if="detectedFormat" class="text-xs mt-1" style="color: var(--text-muted)">
+                Detected: {{ formatLabel(detectedFormat) }}
+              </p>
+            </div>
 
+            <div>
+              <label class="text-sm block mb-1">Import file</label>
+              <input type="file" class="text-sm ui-input w-full" @change="onFile" />
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="space-y-2">
+              <Input v-model="gitForm.name" placeholder="Source name" />
+              <Input
+                v-model="gitForm.repo_url"
+                placeholder="https://github.com/org/repo or GitLab /-/tree/ URL"
+              />
+              <p v-if="detectedGitProviderLabel" class="text-xs" style="color: var(--text-muted)">
+                Detected: {{ detectedGitProviderLabel }}
+              </p>
+              <Input v-model="gitForm.branch" placeholder="Branch (default: main)" />
+              <Input v-model="gitForm.path_prefix" placeholder="Path prefix (optional, e.g. bruno)" />
+              <Input
+                v-model="gitForm.access_token"
+                type="password"
+                autocomplete="off"
+                placeholder="Personal access token (optional for public GitHub)"
+              />
+              <p class="text-xs" style="color: var(--text-muted)">
+                GitHub private repositories need contents read access. GitLab requires read_api and read_repository access.
+              </p>
+            </div>
+          </template>
+
+          <div v-if="progress" class="text-sm" style="color: var(--text-muted)">{{ progress }}</div>
           <div v-if="error" class="text-sm" style="color: var(--method-delete)">{{ error }}</div>
           <div v-if="success" class="text-sm" style="color: var(--method-get)">{{ success }}</div>
 
           <div class="flex gap-2">
-            <Button variant="primary" :disabled="!file || importing" @click="doImport">
-              {{ importing ? 'Importing…' : 'Import' }}
+            <Button variant="primary" :disabled="!canImport || importing" @click="doImport">
+              {{ importing ? (importSource === 'git' ? 'Fetching and importing…' : 'Importing…') : 'Import' }}
             </Button>
             <Button :disabled="!exportColId" @click="doExport">Export collection</Button>
           </div>
@@ -55,6 +90,11 @@
 <script setup lang="ts">
 import { apiUrl } from '~/utils/apiBase'
 import {
+  applyGitLabBrowseUrlHints,
+  detectedGitProvider,
+  gitRepoConfigPayload,
+} from '~/utils/gitRepoForm'
+import {
   placeholdersNeedingEnvMapping,
   requestFieldPlaceholdersFromPostman,
   type ImportFormat,
@@ -74,6 +114,7 @@ defineEmits<{ close: [] }>()
 const colStore = useCollectionsStore()
 const envStore = useEnvironmentsStore()
 const config = useRuntimeConfig()
+const importSource = ref<'file' | 'git'>('file')
 const format = ref<ImportFormat>('auto')
 const file = ref<File | null>(null)
 const fileText = ref('')
@@ -82,6 +123,22 @@ const exportColId = ref('')
 const importing = ref(false)
 const error = ref('')
 const success = ref('')
+const progress = ref('')
+const gitForm = ref({
+  name: 'Imported Bruno',
+  repo_url: '',
+  branch: 'main',
+  path_prefix: '',
+  access_token: '',
+})
+
+const canImport = computed(() => importSource.value === 'file'
+  ? !!file.value
+  : !!gitForm.value.name.trim() && !!gitForm.value.repo_url.trim())
+
+const detectedGitProviderLabel = computed(() => detectedGitProvider(gitForm.value.repo_url))
+
+watch(() => gitForm.value.repo_url, () => applyGitLabBrowseUrlHints(gitForm.value))
 
 const formatLabels: Record<Exclude<ImportFormat, 'auto'>, string> = {
   bruno: 'Bruno (.bru / .zip)',
@@ -165,8 +222,36 @@ async function importText(path: string, body: string, contentType: string): Prom
 }
 
 async function doImport() {
-  if (!file.value) return
-  await runImport()
+  if (importSource.value === 'git') {
+    await runGitImport()
+  } else if (file.value) {
+    await runImport()
+  }
+}
+
+async function runGitImport() {
+  importing.value = true
+  error.value = ''
+  success.value = ''
+  progress.value = 'Connecting to the repository and discovering Bruno files…'
+  try {
+    const api = useApi()
+    const result = await api.post<ImportResult>(`/api/workspaces/${props.workspaceId}/imports/bruno/git`, {
+      name: gitForm.value.name.trim(),
+      ...gitRepoConfigPayload(gitForm.value),
+      access_token: gitForm.value.access_token || undefined,
+    })
+    success.value = formatResult(result)
+    gitForm.value.access_token = ''
+    progress.value = ''
+    await colStore.fetchCollections(props.workspaceId)
+    await colStore.fetchAllRequests(props.workspaceId)
+  } catch (e: any) {
+    progress.value = ''
+    error.value = e.message || 'Git import failed'
+  } finally {
+    importing.value = false
+  }
 }
 
 async function runImport() {
@@ -174,6 +259,7 @@ async function runImport() {
   importing.value = true
   error.value = ''
   success.value = ''
+  progress.value = 'Reading and importing the selected file…'
   try {
     const api = useApi()
     const kind = resolvedFormat()
@@ -216,6 +302,7 @@ async function runImport() {
   } catch (e: any) {
     error.value = e.message || 'Import failed'
   } finally {
+    progress.value = ''
     importing.value = false
   }
 }
