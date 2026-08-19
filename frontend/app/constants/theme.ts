@@ -22,7 +22,7 @@ export interface ThemeDefinition {
   swatch: { bg: string; accent: string; text: string }
 }
 
-export const DEFAULT_THEME: ThemeId = 'tokyo-night'
+export const DEFAULT_THEME: ThemeId = 'github-light'
 
 export const THEMES: ThemeDefinition[] = [
   {
