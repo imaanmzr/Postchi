@@ -2,7 +2,10 @@
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <div v-if="editable" class="space-y-4">
       <div>
-        <label class="text-sm block mb-2 font-medium">Documentation notes</label>
+        <label class="text-sm flex items-center gap-1.5 mb-2 font-medium">
+          <FileText :size="14" class="opacity-70 shrink-0" aria-hidden="true" />
+          Documentation notes
+        </label>
         <textarea
           v-model="description"
           class="ui-input w-full h-48 font-mono text-sm"
@@ -11,8 +14,15 @@
         <p class="text-xs text-muted mt-1">Manual edits mark docs as team-owned and won't be overwritten by OpenAPI sync.</p>
       </div>
       <div class="flex justify-end">
-        <Button variant="primary" :disabled="!isDescriptionDirty" @click="saveDocs">
-          Save documentation
+        <Button
+          class="inline-flex items-center gap-1.5"
+          :variant="isDescriptionDirty ? 'primary' : 'ghost'"
+          :disabled="!isDescriptionDirty || saving"
+          @click="saveDocs"
+        >
+          <Check v-if="!isDescriptionDirty" :size="14" aria-hidden="true" />
+          <Save v-else :size="14" aria-hidden="true" />
+          {{ isDescriptionDirty ? 'Save documentation' : 'Saved' }}
         </Button>
       </div>
     </div>
@@ -182,6 +192,7 @@ import type { RequestItem } from '~/stores/collections'
 import type { DocsBundle, LinkedWorkspaceDoc } from '~/stores/docs'
 import type { DocSummary } from '~/utils/docsTree'
 import { DOC_ALREADY_LINKED_MESSAGE, isSameDoc } from '~/utils/docLinks'
+import { Check, Save } from 'lucide-vue-next'
 
 const props = withDefaults(defineProps<{
   request: RequestItem
@@ -189,7 +200,7 @@ const props = withDefaults(defineProps<{
   editable?: boolean
 }>(), { editable: true })
 
-const emit = defineEmits<{ save: [req: RequestItem] }>()
+const emit = defineEmits<{ save: [req: RequestItem]; 'docs-changed': [] }>()
 
 const api = useApi()
 const docsStore = useDocsStore()
@@ -201,6 +212,7 @@ const docPickerOpen = ref(false)
 const previewDoc = ref<LinkedWorkspaceDoc | null>(null)
 const unlinkingId = ref<string | null>(null)
 const linkError = ref<string | null>(null)
+const saving = ref(false)
 
 const isDescriptionDirty = computed(
   () => description.value !== baselineDescription.value,
@@ -333,6 +345,7 @@ async function onDocSelected(doc: DocSummary) {
     await docsStore.createDocLink(props.workspaceId, doc.id, { request_id: props.request.id })
     docPickerOpen.value = false
     await fetchBundle()
+    emit('docs-changed')
   } catch (e: unknown) {
     linkError.value = e instanceof Error ? e.message : 'Failed to link document'
   }
@@ -345,6 +358,7 @@ async function unlinkDoc(doc: LinkedWorkspaceDoc) {
     await docsStore.deleteDocLink(props.workspaceId, doc.id, doc.link_id)
     if (previewDoc.value?.id === doc.id) previewDoc.value = null
     await fetchBundle()
+    emit('docs-changed')
   } finally {
     unlinkingId.value = null
   }
@@ -358,14 +372,20 @@ function statusClass(code: string) {
   return ''
 }
 
-function saveDocs() {
-  if (!isDescriptionDirty.value) return
-  emit('save', {
-    ...props.request,
-    description: description.value,
-    docs_overridden: true,
-  })
-  baselineDescription.value = description.value
+async function saveDocs() {
+  if (!isDescriptionDirty.value || saving.value) return
+  saving.value = true
+  try {
+    emit('save', {
+      ...props.request,
+      description: description.value,
+      docs_overridden: true,
+    })
+    baselineDescription.value = description.value
+    emit('docs-changed')
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 

@@ -1,12 +1,14 @@
 package catalog
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/imaanmzr/postchi/backend/internal/db"
 	"github.com/imaanmzr/postchi/backend/internal/db/sqlc"
@@ -105,6 +107,11 @@ func (h *Handler) buildCatalog(r *http.Request, wsID uuid.UUID, collectionID str
 	resp := CatalogResponse{Collections: []CollectionSummary{}, Endpoints: []EndpointItem{}}
 	pgWS := db.PGUUID(wsID)
 
+	linkedRequestIDs, err := h.manualLinkedRequestIDs(r.Context(), pgWS)
+	if err != nil {
+		return resp, err
+	}
+
 	colMap := map[string]CollectionSummary{}
 	if collectionID != "" {
 		colUUID, _ := uuid.Parse(collectionID)
@@ -139,13 +146,13 @@ func (h *Handler) buildCatalog(r *http.Request, wsID uuid.UUID, collectionID str
 		if err != nil {
 			return resp, err
 		}
-		h.scanCatalogEndpointRows(rows, colMap, f, &resp)
+		h.scanCatalogEndpointRows(rows, colMap, f, linkedRequestIDs, &resp)
 	} else {
 		rows, err := h.store.ListCatalogEndpointsByWorkspace(r.Context(), pgWS)
 		if err != nil {
 			return resp, err
 		}
-		h.scanCatalogEndpointRows(rows, colMap, f, &resp)
+		h.scanCatalogEndpointRows(rows, colMap, f, linkedRequestIDs, &resp)
 	}
 
 	for _, col := range colMap {
@@ -168,7 +175,19 @@ type catalogEndpointRow struct {
 	SourceOperationID  string
 }
 
-func (h *Handler) scanCatalogEndpointRows(rows any, colMap map[string]CollectionSummary, f catalogFilters, resp *CatalogResponse) {
+func (h *Handler) manualLinkedRequestIDs(ctx context.Context, wsID pgtype.UUID) (map[string]bool, error) {
+	rows, err := h.store.ListManualDocLinksByWorkspace(ctx, wsID)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		out[db.FromPGUUID(row.RequestID).String()] = true
+	}
+	return out, nil
+}
+
+func (h *Handler) scanCatalogEndpointRows(rows any, colMap map[string]CollectionSummary, f catalogFilters, linkedRequestIDs map[string]bool, resp *CatalogResponse) {
 	switch typed := rows.(type) {
 	case []sqlc.ListCatalogEndpointsByWorkspaceRow:
 		for _, row := range typed {
@@ -178,7 +197,7 @@ func (h *Handler) scanCatalogEndpointRows(rows any, colMap map[string]Collection
 				Description: row.Description, ApiDoc: row.ApiDoc,
 				SourceSpecID: db.FromPGUUID(row.SourceSpecID), SourceValid: row.SourceSpecID.Valid,
 				SourceOperationID: row.SourceOperationID,
-			}, colMap, f, resp)
+			}, colMap, f, linkedRequestIDs, resp)
 		}
 	case []sqlc.ListCatalogEndpointsByWorkspaceAndCollectionRow:
 		for _, row := range typed {
@@ -188,12 +207,12 @@ func (h *Handler) scanCatalogEndpointRows(rows any, colMap map[string]Collection
 				Description: row.Description, ApiDoc: row.ApiDoc,
 				SourceSpecID: db.FromPGUUID(row.SourceSpecID), SourceValid: row.SourceSpecID.Valid,
 				SourceOperationID: row.SourceOperationID,
-			}, colMap, f, resp)
+			}, colMap, f, linkedRequestIDs, resp)
 		}
 	}
 }
 
-func (h *Handler) applyEndpoint(row catalogEndpointRow, colMap map[string]CollectionSummary, f catalogFilters, resp *CatalogResponse) {
+func (h *Handler) applyEndpoint(row catalogEndpointRow, colMap map[string]CollectionSummary, f catalogFilters, linkedRequestIDs map[string]bool, resp *CatalogResponse) {
 	ep := EndpointItem{
 		ID:             row.ID.String(),
 		CollectionID:   row.CollectionID.String(),
@@ -212,7 +231,7 @@ func (h *Handler) applyEndpoint(row catalogEndpointRow, colMap map[string]Collec
 		ep.SourceSpecID = &s
 	}
 	ep.Tags, ep.ResponseCodes = parseApiDocMeta(row.ApiDoc)
-	ep.DocsComplete = isEndpointDocumented(row.Description, row.ApiDoc)
+	ep.DocsComplete = isEndpointDocumented(row.Description, row.ApiDoc) || linkedRequestIDs[ep.ID]
 
 	if f.Method != "" && ep.Method != f.Method {
 		return

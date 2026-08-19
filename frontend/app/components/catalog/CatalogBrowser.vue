@@ -7,60 +7,46 @@
     />
 
     <div class="flex flex-1 min-h-0">
-      <div class="w-80 shrink-0 border-r ui-scroll-y" style="border-color: var(--color-border)">
-        <div
-          v-for="col in catalogStore.data?.collections || []"
-          :key="col.id"
-          class="px-3 py-2 border-b text-sm cursor-pointer hover:bg-surface-2"
-          style="border-color: var(--color-border)"
-          @click="selectedCollectionId = col.id"
-        >
-          <div class="font-medium">{{ col.name }}</div>
-          <div class="text-xs text-muted">
-            {{ col.documented_count }}/{{ col.request_count }} documented
-          </div>
-        </div>
-        <div class="p-2">
-          <button
-            class="text-xs w-full text-left px-2 py-1 rounded hover:bg-surface-2"
-            :class="{ 'font-medium': !selectedCollectionId }"
-            @click="selectedCollectionId = null"
-          >
-            All collections
-          </button>
-        </div>
-        <div
-          v-for="ep in filteredEndpoints"
-          :key="ep.id"
-          class="px-3 py-2 border-b text-sm cursor-pointer hover:bg-surface-2 flex items-center gap-2"
-          style="border-color: var(--color-border)"
-          :class="{ 'bg-surface-2': selectedEndpoint?.id === ep.id }"
-          @click="selectEndpoint(ep)"
-        >
-          <MethodBadge :method="ep.method" />
-          <span class="truncate flex-1">{{ ep.name }}</span>
-          <span v-if="!ep.docs_complete" class="w-2 h-2 rounded-full bg-amber-500 shrink-0" title="Undocumented" />
-        </div>
-      </div>
+      <aside
+        class="shrink-0 border-r flex flex-col min-h-0 overflow-hidden"
+        style="width: 300px; border-color: var(--color-border); background: var(--color-surface-1)"
+      >
+        <CatalogTree
+          :workspace-id="workspaceId"
+          :tree="colStore.tree"
+          :endpoints="filteredEndpoints"
+          :collections="catalogStore.data?.collections || []"
+          :selected-id="selectedEndpoint?.id"
+          :loading="catalogStore.loading"
+          @select="selectEndpoint"
+        />
+      </aside>
 
-      <div class="flex-1 ui-scroll-y p-4">
+      <div class="flex-1 ui-scroll-y p-4 min-w-0">
         <template v-if="selectedEndpoint">
-          <div class="flex items-center gap-2 mb-4">
+          <div class="flex items-center gap-2 mb-4 flex-wrap">
             <MethodBadge :method="selectedEndpoint.method" />
             <h2 class="font-semibold">{{ selectedEndpoint.name }}</h2>
-            <span class="font-mono text-sm text-muted truncate">{{ selectedEndpoint.url }}</span>
-            <Button v-if="!readOnly && onOpenInBuilder" class="text-xs ml-auto" @click="onOpenInBuilder(selectedEndpoint)">
-              Open in builder
-            </Button>
+            <span class="font-mono text-sm text-muted truncate min-w-0">{{ selectedEndpoint.url }}</span>
+            <NuxtLink
+              v-if="!readOnly"
+              :to="requestEditorUrl"
+              class="ui-btn ui-btn-ghost text-xs ml-auto shrink-0 inline-flex items-center gap-1.5"
+              title="Open the full request editor to send, edit params, headers, and scripts"
+            >
+              <SquarePen :size="14" aria-hidden="true" />
+              Open in request editor
+            </NuxtLink>
           </div>
           <RequestDocsPanel
             :request="endpointAsRequest(selectedEndpoint)"
             :workspace-id="workspaceId"
             :editable="!readOnly"
             @save="onSaveEndpoint"
+            @docs-changed="refreshCatalogSelection"
           />
         </template>
-        <p v-else class="text-sm text-muted">Select an endpoint to view documentation.</p>
+        <p v-else class="text-sm text-muted">Select an endpoint from the tree to view or edit its documentation.</p>
       </div>
     </div>
   </div>
@@ -69,17 +55,17 @@
 <script setup lang="ts">
 import type { CatalogEndpoint } from '~/stores/catalog'
 import type { RequestItem } from '~/stores/collections'
+import { buildWorkspaceRequestUrl } from '~/utils/docLinks'
+import { SquarePen } from 'lucide-vue-next'
 
 const props = defineProps<{
   workspaceId: string
   readOnly?: boolean
   snapshotEndpoints?: CatalogEndpoint[]
-  onOpenInBuilder?: (ep: CatalogEndpoint) => void
 }>()
 
 const catalogStore = useCatalogStore()
 const colStore = useCollectionsStore()
-const selectedCollectionId = ref<string | null>(null)
 const selectedEndpoint = ref<CatalogEndpoint | null>(null)
 
 const endpoints = computed(() => {
@@ -87,12 +73,11 @@ const endpoints = computed(() => {
   return catalogStore.data?.endpoints || []
 })
 
-const filteredEndpoints = computed(() => {
-  let list = endpoints.value
-  if (selectedCollectionId.value) {
-    list = list.filter(ep => ep.collection_id === selectedCollectionId.value)
-  }
-  return list
+const filteredEndpoints = computed(() => endpoints.value)
+
+const requestEditorUrl = computed(() => {
+  if (!selectedEndpoint.value) return '#'
+  return buildWorkspaceRequestUrl(props.workspaceId, selectedEndpoint.value.id)
 })
 
 const allTags = computed(() => {
@@ -105,7 +90,10 @@ const allTags = computed(() => {
 
 onMounted(async () => {
   if (!props.snapshotEndpoints && props.workspaceId) {
-    await catalogStore.fetchWorkspace(props.workspaceId)
+    await Promise.all([
+      catalogStore.fetchWorkspace(props.workspaceId),
+      colStore.fetchCollections(props.workspaceId),
+    ])
   }
 })
 
@@ -141,6 +129,14 @@ function endpointAsRequest(ep: CatalogEndpoint): RequestItem {
   }
 }
 
+async function refreshCatalogSelection() {
+  if (props.snapshotEndpoints || !selectedEndpoint.value) return
+  const currentId = selectedEndpoint.value.id
+  await catalogStore.fetchWorkspace(props.workspaceId)
+  const updated = catalogStore.data?.endpoints.find(e => e.id === currentId)
+  if (updated) selectedEndpoint.value = updated
+}
+
 async function onSaveEndpoint(req: RequestItem) {
   await colStore.saveRequest(req)
   selectedEndpoint.value = {
@@ -148,15 +144,12 @@ async function onSaveEndpoint(req: RequestItem) {
     description: req.description || '',
     docs_complete: true,
   }
+  await refreshCatalogSelection()
 }
 </script>
 
 <style scoped>
 .text-muted {
   color: var(--color-text-muted);
-}
-.hover\:bg-surface-2:hover,
-.bg-surface-2 {
-  background: var(--color-surface-2);
 }
 </style>

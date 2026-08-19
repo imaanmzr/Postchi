@@ -1,18 +1,27 @@
 <template>
   <div class="flex flex-wrap gap-3 p-3 border-b items-end" style="border-color: var(--color-border); background: var(--color-surface-1)">
     <div>
-      <label class="text-xs block mb-1">Search</label>
+      <label class="text-xs flex items-center gap-1.5 mb-1">
+        <Search :size="12" class="opacity-70 shrink-0" aria-hidden="true" />
+        Search
+      </label>
       <input v-model="local.q" class="ui-input text-sm w-48" placeholder="Name, URL, method…" @input="emitUpdate" />
     </div>
     <div>
-      <label class="text-xs block mb-1">Method</label>
+      <label class="text-xs flex items-center gap-1.5 mb-1">
+        <ListFilter :size="12" class="opacity-70 shrink-0" aria-hidden="true" />
+        Method
+      </label>
       <select v-model="local.method" class="ui-input text-sm" @change="emitUpdate">
         <option value="">All</option>
         <option v-for="m in methods" :key="m" :value="m">{{ m }}</option>
       </select>
     </div>
     <div>
-      <label class="text-xs block mb-1">Tag</label>
+      <label class="text-xs flex items-center gap-1.5 mb-1">
+        <Tag :size="12" class="opacity-70 shrink-0" aria-hidden="true" />
+        Tag
+      </label>
       <select v-model="local.tag" class="ui-input text-sm" @change="emitUpdate">
         <option value="">All</option>
         <option v-for="t in tags" :key="t" :value="t">{{ t }}</option>
@@ -26,6 +35,8 @@
 </template>
 
 <script setup lang="ts">
+import { ListFilter, Search, Tag } from 'lucide-vue-next'
+
 const props = defineProps<{
   filters: { q: string; tag: string; method: string; undocumented: boolean; spec_id: string }
   tags: string[]

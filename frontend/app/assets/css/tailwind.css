@@ -97,6 +97,18 @@ body {
   background: var(--color-btn-primary-hover);
 }
 
+.ui-btn:disabled,
+.nord-btn:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.ui-btn-primary:disabled,
+.nord-btn-primary:disabled {
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+}
+
 .ui-btn-ghost,
 .nord-btn-ghost {
   background: transparent;
