@@ -22,6 +22,7 @@ type brunoSourceFile struct {
 
 type brunoParseOptions struct {
 	RootName         string
+	RootPathPrefix   string
 	RequireRootMeta  bool
 	ValidateRequests bool
 }
@@ -71,10 +72,11 @@ func parseBrunoFiles(files []brunoSourceFile, options brunoParseOptions) (model.
 	foundRootMeta := false
 
 	for _, file := range files {
-		name := strings.Trim(filepath.ToSlash(file.Path), "/")
-		if !strings.HasSuffix(strings.ToLower(name), ".bru") {
+		sourcePath := strings.Trim(filepath.ToSlash(file.Path), "/")
+		if !strings.HasSuffix(strings.ToLower(sourcePath), ".bru") {
 			continue
 		}
+		name := stripBrunoCollectionRootPrefix(sourcePath, options.RootPathPrefix)
 		parts := strings.Split(name, "/")
 		if containsPathSegment(parts[:len(parts)-1], "environments") {
 			continue
@@ -85,22 +87,22 @@ func parseBrunoFiles(files []brunoSourceFile, options brunoParseOptions) (model.
 		isFolder := strings.EqualFold(base, "folder.bru")
 
 		if len(bytes.TrimSpace(file.Content)) == 0 {
-			return model.Collection{}, fmt.Errorf("%s is empty", name)
+			return model.Collection{}, fmt.Errorf("%s is empty", sourcePath)
 		}
 		parsed := bruno.Parse(string(file.Content))
-		node := bruGetOrCreatePath(root, dirParts)
+		node := bruGetOrCreatePath(root, dirParts, options.RootPathPrefix)
 
 		if isCollection || isFolder {
 			if isCollection && len(dirParts) == 0 {
 				foundRootMeta = true
 			}
-			if err := validateBrunoMetadata(name, parsed, isFolder); err != nil {
-				return model.Collection{}, fmt.Errorf("%s: %w", name, err)
+			if err := validateBrunoMetadata(sourcePath, parsed, isFolder); err != nil {
+				return model.Collection{}, fmt.Errorf("%s: %w", sourcePath, err)
 			}
 			if parsed.Name != "" {
 				node.name = parsed.Name
 			}
-			node.sourcePath = name
+			node.sourcePath = sourcePath
 			node.variables = bruVarsToSpec(bruno.ToVars(parsed.Sections["vars:pre-request"], parsed.Sections["vars:post-response"]))
 			if seq := bruMetaSeq(parsed); seq >= 0 {
 				node.sortOrder = seq
@@ -110,11 +112,11 @@ func parseBrunoFiles(files []brunoSourceFile, options brunoParseOptions) (model.
 
 		if options.ValidateRequests {
 			if err := validateBrunoRequest(parsed); err != nil {
-				return model.Collection{}, fmt.Errorf("%s: %w", name, err)
+				return model.Collection{}, fmt.Errorf("%s: %w", sourcePath, err)
 			}
 		}
 		req := bruToNorm(bruno.ToRequest(parsed))
-		req.SourcePath = name
+		req.SourcePath = sourcePath
 		if req.Name == "" {
 			req.Name = strings.TrimSuffix(base, filepath.Ext(base))
 		}
@@ -166,6 +168,19 @@ func validateBrunoRequest(parsed bruno.ParsedBru) error {
 	return fmt.Errorf("HTTP method block is missing")
 }
 
+func stripBrunoCollectionRootPrefix(path, rootPrefix string) string {
+	path = strings.Trim(path, "/")
+	rootPrefix = strings.Trim(rootPrefix, "/")
+	if rootPrefix == "" || path == rootPrefix {
+		return path
+	}
+	prefix := rootPrefix + "/"
+	if strings.HasPrefix(path, prefix) {
+		return strings.TrimPrefix(path, prefix)
+	}
+	return path
+}
+
 func containsPathSegment(parts []string, target string) bool {
 	for _, part := range parts {
 		if strings.EqualFold(part, target) {
@@ -175,7 +190,7 @@ func containsPathSegment(parts []string, target string) bool {
 	return false
 }
 
-func bruGetOrCreatePath(root *bruDirNode, dirParts []string) *bruDirNode {
+func bruGetOrCreatePath(root *bruDirNode, dirParts []string, rootPathPrefix string) *bruDirNode {
 	current := root
 	pathParts := make([]string, 0, len(dirParts))
 	for _, part := range dirParts {
@@ -186,13 +201,28 @@ func bruGetOrCreatePath(root *bruDirNode, dirParts []string) *bruDirNode {
 		if current.children[part] == nil {
 			current.children[part] = &bruDirNode{
 				name:       part,
-				sourcePath: strings.Join(pathParts, "/") + "/",
+				sourcePath: joinBrunoSourcePath(rootPathPrefix, strings.Join(pathParts, "/")+"/"),
 				children:   map[string]*bruDirNode{},
 			}
 		}
 		current = current.children[part]
 	}
 	return current
+}
+
+func joinBrunoSourcePath(rootPrefix, relativePath string) string {
+	relativePath = strings.Trim(relativePath, "/")
+	if relativePath != "" {
+		relativePath += "/"
+	}
+	rootPrefix = strings.Trim(rootPrefix, "/")
+	if rootPrefix == "" {
+		return relativePath
+	}
+	if relativePath == "" {
+		return rootPrefix + "/"
+	}
+	return rootPrefix + "/" + relativePath
 }
 
 func bruMetaSeq(parsed bruno.ParsedBru) int {

@@ -44,4 +44,9 @@ func TestGitImportPipelineWithMockServer(t *testing.T) {
 	if len(parsed.Collections) == 0 {
 		t.Fatalf("no collections parsed, errors=%v files=%d roots=%d", parsed.Errors, len(files), len(roots))
 	}
+	col := parsed.Collections[0]
+	_, reqs := countTree(col)
+	if reqs < 2 {
+		t.Fatalf("expected nested requests, got %d", reqs)
+	}
 }

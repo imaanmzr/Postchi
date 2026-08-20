@@ -54,6 +54,7 @@ func parseDiscoveredRoot(root gitsync.DiscoveredRoot, defaultName string) (model
 		}
 		return parseBrunoFiles(files, brunoParseOptions{
 			RootName:         name,
+			RootPathPrefix:   root.RootPath,
 			RequireRootMeta:  true,
 			ValidateRequests: true,
 		})
