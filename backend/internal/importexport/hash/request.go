@@ -1,0 +1,43 @@
+package hash
+
+import (
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+
+	"github.com/imaanmzr/postchi/backend/internal/importexport/model"
+	"github.com/imaanmzr/postchi/backend/internal/request"
+)
+
+func Request(req model.Request) string {
+	payload := struct {
+		Name             string           `json:"name"`
+		Method           string           `json:"method"`
+		URL              string           `json:"url"`
+		Description      string           `json:"description"`
+		Headers          []request.KVPair `json:"headers"`
+		Params           []request.KVPair `json:"params"`
+		PathVars         []request.KVPair `json:"path_vars"`
+		Body             request.BodySpec `json:"body"`
+		Auth             request.AuthSpec `json:"auth"`
+		PreRequestScript string           `json:"pre_request_script"`
+		TestScript       string           `json:"test_script"`
+		SortOrder        int              `json:"sort_order"`
+	}{
+		Name:             req.Name,
+		Method:           req.Method,
+		URL:              req.URL,
+		Description:      req.Description,
+		Headers:          req.Headers,
+		Params:           req.Params,
+		PathVars:         req.PathVars,
+		Body:             req.Body,
+		Auth:             req.Auth,
+		PreRequestScript: req.PreRequestScript,
+		TestScript:       req.TestScript,
+		SortOrder:        req.SortOrder,
+	}
+	b, _ := json.Marshal(payload)
+	sum := sha256.Sum256(b)
+	return fmt.Sprintf("%x", sum)
+}

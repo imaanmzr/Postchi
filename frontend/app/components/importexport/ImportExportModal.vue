@@ -10,7 +10,7 @@
             <label class="text-sm block mb-1">Import source</label>
             <Select v-model="importSource">
               <option value="file">Upload a file</option>
-              <option value="git">Import Bruno from Git</option>
+              <option value="git">Import collections from Git</option>
             </Select>
           </div>
 
@@ -89,6 +89,7 @@
 
 <script setup lang="ts">
 import { apiUrl } from '~/utils/apiBase'
+import { detectImportFormat } from '~/utils/detectImportFormat'
 import {
   applyGitLabBrowseUrlHints,
   detectedGitProvider,
@@ -106,6 +107,8 @@ interface ImportResult {
   collections: number
   requests: number
   environments: number
+  warnings?: string[]
+  errors?: string[]
 }
 
 const props = defineProps<{ workspaceId: string }>()
@@ -158,22 +161,9 @@ function formatLabel(f: ImportFormat | '') {
 }
 
 function detectFormat(name: string, text: string): Exclude<ImportFormat, 'auto'> {
-  const lower = name.toLowerCase()
-  if (lower.endsWith('.zip') || lower.endsWith('.bru')) return 'bruno'
-  const trimmed = text.trim()
-  if (trimmed.startsWith('{')) {
-    try {
-      const json = JSON.parse(trimmed)
-      if (json.opencollection) return 'opencollection'
-      const schema = json.info?.schema || ''
-      if (typeof schema === 'string' && schema.includes('postman.com/json/collection')) return 'postman'
-      if (json.openapi || json.swagger) return 'openapi'
-    } catch { /* fall through */ }
-  }
-  if (/^opencollection\s*:/m.test(trimmed)) return 'opencollection'
-  if (/^openapi\s*:/m.test(trimmed) || /^swagger\s*:/m.test(trimmed)) return 'openapi'
-  if (lower.endsWith('.yml') || lower.endsWith('.yaml')) return 'opencollection'
-  return 'postman'
+  const detected = detectImportFormat(name, text)
+  if (detected === 'unknown') return 'postman'
+  return detected
 }
 
 function resolvedFormat(): Exclude<ImportFormat, 'auto'> {
@@ -202,7 +192,14 @@ function formatResult(r: ImportResult) {
   if (r.collections) parts.push(`${r.collections} folder(s)`)
   if (r.requests) parts.push(`${r.requests} request(s)`)
   if (r.environments) parts.push(`${r.environments} environment(s)`)
-  return parts.length ? `Imported ${parts.join(', ')}` : 'Import produced no data'
+  let message = parts.length ? `Imported ${parts.join(', ')}` : 'Import produced no data'
+  if (r.warnings?.length) {
+    message += `. Warnings: ${r.warnings.join('; ')}`
+  }
+  if (r.errors?.length) {
+    message += `. Skipped: ${r.errors.join('; ')}`
+  }
+  return message
 }
 
 async function importText(path: string, body: string, contentType: string): Promise<ImportResult> {
@@ -233,10 +230,10 @@ async function runGitImport() {
   importing.value = true
   error.value = ''
   success.value = ''
-  progress.value = 'Connecting to the repository and discovering Bruno files…'
+  progress.value = 'Connecting to the repository and discovering collection files…'
   try {
     const api = useApi()
-    const result = await api.post<ImportResult>(`/api/workspaces/${props.workspaceId}/imports/bruno/git`, {
+    const result = await api.post<ImportResult>(`/api/workspaces/${props.workspaceId}/imports/git`, {
       name: gitForm.value.name.trim(),
       ...gitRepoConfigPayload(gitForm.value),
       access_token: gitForm.value.access_token || undefined,

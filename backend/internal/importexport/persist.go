@@ -65,13 +65,31 @@ func (h *Handler) persistCollectionTx(ctx context.Context, q *sqlc.Queries, wsID
 }
 
 func (h *Handler) insertRequestTx(ctx context.Context, q *sqlc.Queries, colID, userID uuid.UUID, req model.Request) error {
-	headers, _ := json.Marshal(req.Headers)
-	params, _ := json.Marshal(req.Params)
-	pathVars, _ := json.Marshal(req.PathVars)
-	body, _ := json.Marshal(req.Body)
-	authB, _ := json.Marshal(req.Auth)
-	settings, _ := json.Marshal(req.Settings)
-	err := q.InsertImportedRequest(ctx, sqlc.InsertImportedRequestParams{
+	headers, err := json.Marshal(req.Headers)
+	if err != nil {
+		return fmt.Errorf("marshal headers for %q: %w", req.Name, err)
+	}
+	params, err := json.Marshal(req.Params)
+	if err != nil {
+		return fmt.Errorf("marshal params for %q: %w", req.Name, err)
+	}
+	pathVars, err := json.Marshal(req.PathVars)
+	if err != nil {
+		return fmt.Errorf("marshal path vars for %q: %w", req.Name, err)
+	}
+	body, err := json.Marshal(req.Body)
+	if err != nil {
+		return fmt.Errorf("marshal body for %q: %w", req.Name, err)
+	}
+	authB, err := json.Marshal(req.Auth)
+	if err != nil {
+		return fmt.Errorf("marshal auth for %q: %w", req.Name, err)
+	}
+	settings, err := json.Marshal(req.Settings)
+	if err != nil {
+		return fmt.Errorf("marshal settings for %q: %w", req.Name, err)
+	}
+	err = q.InsertImportedRequest(ctx, sqlc.InsertImportedRequestParams{
 		CollectionID:        db.PGUUID(colID),
 		Name:                req.Name,
 		Method:              req.Method,
@@ -117,6 +135,23 @@ func (h *Handler) validateWorkspace(ctx context.Context, wsID uuid.UUID) error {
 	}
 	if !exists {
 		return fmt.Errorf("workspace not found")
+	}
+	return nil
+}
+
+func (h *Handler) validateWorkspaceEditor(ctx context.Context, wsID, userID uuid.UUID) error {
+	if err := h.validateWorkspace(ctx, wsID); err != nil {
+		return err
+	}
+	role, err := h.store.GetWorkspaceMemberRole(ctx, sqlc.GetWorkspaceMemberRoleParams{
+		WorkspaceID: db.PGUUID(wsID),
+		UserID:      db.PGUUID(userID),
+	})
+	if err != nil {
+		return fmt.Errorf("not a workspace member")
+	}
+	if role != "editor" && role != "owner" {
+		return fmt.Errorf("insufficient permissions")
 	}
 	return nil
 }

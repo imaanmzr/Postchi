@@ -1,11 +1,11 @@
 <template>
   <section class="rounded border p-3 space-y-4" style="border-color: var(--border)">
     <div>
-      <h4 class="font-medium text-sm">Sync Bruno collection from Git</h4>
+      <h4 class="font-medium text-sm">Sync collections from Git</h4>
       <p class="text-xs text-muted mt-1">
-        Connect a GitHub or GitLab repository containing Bruno <code>.bru</code> files.
-        New requests added to the repo appear after you click <strong>Sync now</strong>.
-        Browser links like <code>/-/tree/main/bruno</code> work too.
+        Connect a GitHub or GitLab repository containing Bruno, Postman, OpenCollection, or OpenAPI files.
+        Changes in the repo appear after you click <strong>Sync now</strong>.
+        Browser links like <code>/-/tree/main/collections</code> work too.
       </p>
     </div>
 
@@ -25,8 +25,8 @@
         placeholder="Personal access token (required for private repos and GitLab)"
       />
       <p class="text-xs text-muted">
-        The folder must include a root <code>collection.bru</code> file. GitHub private repos need contents read access.
-        GitLab needs <code>read_api</code> and <code>read_repository</code>.
+        Bruno folders need a root <code>collection.bru</code> file. Postman, OpenCollection, and OpenAPI files are auto-detected.
+        GitHub private repos need contents read access. GitLab needs <code>read_api</code> and <code>read_repository</code>.
       </p>
       <Button variant="primary" :disabled="creating || !canCreate" @click="createSource">
         {{ creating ? 'Connecting and syncing…' : 'Add git source' }}

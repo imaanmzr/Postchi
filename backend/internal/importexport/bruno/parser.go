@@ -48,35 +48,41 @@ func Parse(content string) ParsedBru {
 	var buf strings.Builder
 	sections := map[string]string{}
 	name := ""
+	braceDepth := 0
+
+	closeSection := func() {
+		if current == "" {
+			return
+		}
+		sections[current] = strings.TrimSpace(buf.String())
+		buf.Reset()
+		current = ""
+		braceDepth = 0
+	}
 
 	for _, line := range lines {
 		trim := strings.TrimSpace(line)
-		if trim == "}" && current != "" {
-			sections[current] = strings.TrimSpace(buf.String())
-			buf.Reset()
-			current = ""
+		if m := sectionRe.FindStringSubmatch(trim); len(m) == 2 && braceDepth == 0 {
+			closeSection()
+			current = m[1]
+			braceDepth = 1
 			continue
 		}
-		if m := sectionRe.FindStringSubmatch(trim); len(m) == 2 {
-			if current != "" {
-				sections[current] = strings.TrimSpace(buf.String())
-				buf.Reset()
-			}
-			current = m[1]
+		if current == "" {
 			continue
 		}
 		if current == "meta" {
 			if strings.HasPrefix(trim, "name:") {
 				name = strings.TrimSpace(strings.TrimPrefix(trim, "name:"))
 			}
-			buf.WriteString(line)
-			buf.WriteString("\n")
+		}
+		if trim == "}" && braceDepth == 1 {
+			closeSection()
 			continue
 		}
-		if current != "" {
-			buf.WriteString(line)
-			buf.WriteString("\n")
-		}
+		buf.WriteString(line)
+		buf.WriteString("\n")
+		braceDepth += strings.Count(trim, "{") - strings.Count(trim, "}")
 	}
 	if current != "" {
 		sections[current] = strings.TrimSpace(buf.String())

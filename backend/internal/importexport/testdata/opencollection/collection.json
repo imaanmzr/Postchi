@@ -1,0 +1,19 @@
+{
+  "opencollection": "1.0.0",
+  "info": {
+    "name": "JSON Collection"
+  },
+  "items": [
+    {
+      "info": {
+        "name": "Ping",
+        "type": "http",
+        "seq": 1
+      },
+      "http": {
+        "method": "GET",
+        "url": "https://example.com/ping"
+      }
+    }
+  ]
+}

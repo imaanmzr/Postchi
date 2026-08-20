@@ -3,11 +3,13 @@ package importexport
 import "github.com/imaanmzr/postchi/backend/internal/importexport/model"
 
 type ImportResult struct {
-	CollectionID  string `json:"collection_id,omitempty"`
-	RequestID     string `json:"request_id,omitempty"`
-	Collections   int    `json:"collections"`
-	Requests      int    `json:"requests"`
-	Environments  int    `json:"environments"`
+	CollectionID string   `json:"collection_id,omitempty"`
+	RequestID    string   `json:"request_id,omitempty"`
+	Collections  int      `json:"collections"`
+	Requests     int      `json:"requests"`
+	Environments int      `json:"environments"`
+	Warnings     []string `json:"warnings,omitempty"`
+	Errors       []string `json:"errors,omitempty"`
 }
 
 func (r ImportResult) Total() int {

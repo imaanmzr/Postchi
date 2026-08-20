@@ -63,7 +63,7 @@ func parseBrunoZip(data []byte) (model.Collection, error) {
 		}
 		files = append(files, brunoSourceFile{Path: name, Content: content})
 	}
-	return parseBrunoFiles(files, brunoParseOptions{})
+	return parseBrunoFiles(files, defaultBrunoParseOptions())
 }
 
 func parseBrunoFiles(files []brunoSourceFile, options brunoParseOptions) (model.Collection, error) {

@@ -35,6 +35,9 @@ func TestParsePostWithJSONBody(t *testing.T) {
 	if !strings.Contains(req.Body, "Example Group") {
 		t.Fatalf("body=%q", req.Body)
 	}
+	if !strings.HasSuffix(strings.TrimSpace(req.Body), "}") {
+		t.Fatalf("body missing closing brace: %q", req.Body)
+	}
 	exported := ExportRequest(req)
 	reParsed := Parse(exported)
 	reReq := ToRequest(reParsed)

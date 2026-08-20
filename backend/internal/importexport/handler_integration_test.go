@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,29 +20,21 @@ import (
 	"github.com/imaanmzr/postchi/backend/internal/auth"
 	appdb "github.com/imaanmzr/postchi/backend/internal/db"
 	"github.com/imaanmzr/postchi/backend/internal/db/sqlc"
-	"github.com/imaanmzr/postchi/backend/internal/shared/db"
+	"github.com/imaanmzr/postchi/backend/internal/shared/crypto"
 	"github.com/imaanmzr/postchi/backend/internal/testutil"
 )
 
 func TestHandlerIntegration(t *testing.T) {
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL not set")
-	}
-
 	ctx := context.Background()
-	if err := db.RunMigrations(databaseURL, "file://"+filepath.Join("..", "..", "..", "migrations")); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
-	pool, err := pgxpool.New(ctx, databaseURL)
-	if err != nil {
-		t.Fatalf("pool: %v", err)
-	}
-	defer pool.Close()
+	pool := requireIntegrationDB(t)
 
 	userID, wsID := seedWorkspace(t, ctx, pool)
 	store := appdb.NewStore(pool)
-	h := NewHandler(store, nil)
+	cryptoSvc, err := crypto.NewService("0123456789abcdef0123456789abcdef")
+	if err != nil {
+		t.Fatalf("crypto: %v", err)
+	}
+	h := NewHandler(store, cryptoSvc)
 	tokens := auth.NewService("test-secret-key-32-chars-minimum!", "postchi", 0, 0)
 
 	t.Run("postman nested import counts", func(t *testing.T) {
@@ -125,34 +118,13 @@ func TestHandlerIntegration(t *testing.T) {
 	})
 
 	t.Run("nested Git Bruno repository imports transactionally", func(t *testing.T) {
-		gitServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Header.Get("Private-Token") != "gitlab-token" {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
-			}
-			escapedPath := r.URL.EscapedPath()
-			switch {
-			case strings.Contains(r.URL.Path, "/repository/tree"):
-				_, _ = w.Write([]byte(`[
-					{"path":"collection.bru","type":"blob"},
-					{"path":"Orders/folder.bru","type":"blob"},
-					{"path":"Orders/list.bru","type":"blob"},
-					{"path":"health.bru","type":"blob"},
-					{"path":"environments/local.bru","type":"blob"},
-					{"path":"README.md","type":"blob"}
-				]`))
-			case strings.Contains(escapedPath, "collection%252Ebru/raw") || strings.Contains(escapedPath, "collection%2Ebru/raw"):
-				_, _ = w.Write([]byte("meta {\n  name: Repository API\n  type: collection\n}\n"))
-			case strings.Contains(escapedPath, "Orders%252Ffolder%252Ebru/raw") || strings.Contains(escapedPath, "Orders%2Ffolder%2Ebru/raw"):
-				_, _ = w.Write([]byte("meta {\n  name: Orders\n  seq: 1\n}\n"))
-			case strings.Contains(escapedPath, "Orders%252Flist%252Ebru/raw") || strings.Contains(escapedPath, "Orders%2Flist%2Ebru/raw"):
-				_, _ = w.Write([]byte("meta {\n  name: List orders\n  type: http\n  seq: 1\n}\n\nget {\n  url: https://example.com/orders\n}\n"))
-			case strings.Contains(escapedPath, "health%252Ebru/raw") || strings.Contains(escapedPath, "health%2Ebru/raw"):
-				_, _ = w.Write([]byte("meta {\n  name: Health\n  type: http\n  seq: 1\n}\n\nget {\n  url: https://example.com/health\n}\n"))
-			default:
-				http.NotFound(w, r)
-			}
-		}))
+		gitServer := newGitLabFileServer(t, map[string]string{
+			"collection.bru":    "meta {\n  name: Repository API\n  type: collection\n}\n",
+			"Orders/folder.bru": "meta {\n  name: Orders\n  seq: 1\n}\n",
+			"Orders/list.bru":   "meta {\n  name: List orders\n  type: http\n  seq: 1\n}\n\nget {\n  url: https://example.com/orders\n}\n",
+			"health.bru":        "meta {\n  name: Health\n  type: http\n  seq: 1\n}\n\nget {\n  url: https://example.com/health\n}\n",
+			"README.md":         "# docs",
+		})
 		defer gitServer.Close()
 
 		body := fmt.Sprintf(`{
@@ -203,24 +175,13 @@ func TestHandlerIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		gitServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch {
-			case strings.Contains(r.URL.Path, "/repository/tree"):
-				_, _ = w.Write([]byte(`[
-					{"path":"collection.bru","type":"blob"},
-					{"path":"broken.bru","type":"blob"}
-				]`))
-			case strings.Contains(r.URL.EscapedPath(), "collection%2Ebru/raw") || strings.Contains(r.URL.EscapedPath(), "collection%252Ebru/raw"):
-				_, _ = w.Write([]byte("meta {\n  name: API\n  type: collection\n}\n"))
-			case strings.Contains(r.URL.EscapedPath(), "broken%2Ebru/raw") || strings.Contains(r.URL.EscapedPath(), "broken%252Ebru/raw"):
-				_, _ = w.Write([]byte("meta {\n  name: Broken\n  type: http\n}\n"))
-			default:
-				http.NotFound(w, r)
-			}
-		}))
+		gitServer := newGitLabFileServer(t, map[string]string{
+			"collection.bru": "meta {\n  name: API\n  type: collection\n}\n",
+			"broken.bru":     "meta {\n  name: Broken\n  type: http\n}\n",
+		})
 		defer gitServer.Close()
 
-		body := fmt.Sprintf(`{"name":"Must not persist","repo_url":%q,"access_token":"token"}`,
+		body := fmt.Sprintf(`{"name":"Must not persist","repo_url":%q,"access_token":"gitlab-token"}`,
 			gitServer.URL+"/group/repository")
 		rr := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/api/workspaces/"+wsID.String()+"/imports/bruno/git", strings.NewReader(body))
@@ -245,4 +206,32 @@ func TestHandlerIntegration(t *testing.T) {
 func seedWorkspace(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (uuid.UUID, uuid.UUID) {
 	t.Helper()
 	return testutil.SeedWorkspace(t, ctx, pool)
+}
+
+func newGitLabFileServer(t *testing.T, files map[string]string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Private-Token") != "gitlab-token" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if strings.Contains(r.URL.Path, "/repository/tree") {
+			var entries []map[string]string
+			for path := range files {
+				entries = append(entries, map[string]string{"path": path, "type": "blob"})
+			}
+			entries = append(entries, map[string]string{"path": "environments/local.bru", "type": "blob"})
+			b, _ := json.Marshal(entries)
+			_, _ = w.Write(b)
+			return
+		}
+		for path, content := range files {
+			decodedPath, _ := url.PathUnescape(r.URL.Path)
+			if strings.Contains(decodedPath, path) || strings.Contains(r.URL.Path, path) {
+				_, _ = w.Write([]byte(content))
+				return
+			}
+		}
+		http.NotFound(w, r)
+	}))
 }

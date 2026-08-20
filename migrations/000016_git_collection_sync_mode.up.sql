@@ -1,0 +1,2 @@
+ALTER TABLE bruno_sources
+    ADD COLUMN IF NOT EXISTS sync_mode TEXT NOT NULL DEFAULT 'auto';

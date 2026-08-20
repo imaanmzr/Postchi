@@ -16,6 +16,7 @@ import (
 	"github.com/imaanmzr/postchi/backend/internal/auth"
 	"github.com/imaanmzr/postchi/backend/internal/db"
 	"github.com/imaanmzr/postchi/backend/internal/db/sqlc"
+	"github.com/imaanmzr/postchi/backend/internal/importexport/gitsync"
 	"github.com/imaanmzr/postchi/backend/internal/importexport/model"
 	"github.com/imaanmzr/postchi/backend/internal/shared/gitrepo"
 	"github.com/imaanmzr/postchi/backend/internal/shared/operationid"
@@ -34,12 +35,13 @@ type BrunoSource struct {
 }
 
 type BrunoSyncResult struct {
-	AddedCollections   int `json:"added_collections"`
-	UpdatedCollections int `json:"updated_collections"`
-	AddedRequests      int `json:"added_requests"`
-	UpdatedRequests    int `json:"updated_requests"`
-	RemovedRequests    int `json:"removed_requests"`
-	RemovedCollections int `json:"removed_collections"`
+	AddedCollections   int      `json:"added_collections"`
+	UpdatedCollections int      `json:"updated_collections"`
+	AddedRequests      int      `json:"added_requests"`
+	UpdatedRequests    int      `json:"updated_requests"`
+	RemovedRequests    int      `json:"removed_requests"`
+	RemovedCollections int      `json:"removed_collections"`
+	Errors             []string `json:"errors,omitempty"`
 }
 
 func (h *Handler) ListBrunoSources(w http.ResponseWriter, r *http.Request) {
@@ -222,6 +224,14 @@ func (h *Handler) DeleteBrunoSource(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) SyncBrunoSource(w http.ResponseWriter, r *http.Request) {
+	h.syncCollectionSource(w, r)
+}
+
+func (h *Handler) SyncCollectionSource(w http.ResponseWriter, r *http.Request) {
+	h.syncCollectionSource(w, r)
+}
+
+func (h *Handler) syncCollectionSource(w http.ResponseWriter, r *http.Request) {
 	userID, err := auth.UserIDFromContext(r.Context())
 	if err != nil {
 		respond.Error(w, http.StatusUnauthorized, "unauthorized")
@@ -238,6 +248,10 @@ func (h *Handler) SyncBrunoSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	wsID := db.FromPGUUID(row.WorkspaceID)
+	if err := h.validateWorkspaceEditor(r.Context(), wsID, userID); err != nil {
+		respond.Error(w, http.StatusForbidden, err.Error())
+		return
+	}
 	result, syncErr := h.syncBrunoSource(r.Context(), wsID, sourceID, userID)
 	if syncErr != nil {
 		writeGitImportError(w, syncErr)
@@ -247,6 +261,10 @@ func (h *Handler) SyncBrunoSource(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) syncBrunoSource(ctx context.Context, wsID, sourceID, userID uuid.UUID) (BrunoSyncResult, error) {
+	mu := h.sourceSyncMutex(sourceID)
+	mu.Lock()
+	defer mu.Unlock()
+
 	result := BrunoSyncResult{}
 	row, err := h.store.GetBrunoSourceForSync(ctx, db.PGUUID(sourceID))
 	if err != nil {
@@ -293,17 +311,19 @@ func (h *Handler) syncBrunoSource(ctx context.Context, wsID, sourceID, userID uu
 	if err != nil {
 		return result, err
 	}
-	files, err := fetchBrunoRepository(syncCtx, client)
+	files, err := gitsync.FetchRepository(syncCtx, client)
 	if err != nil {
 		return result, err
 	}
-	parsed, err := parseBrunoFiles(files, brunoParseOptions{
-		RootName:         row.Name,
-		RequireRootMeta:  true,
-		ValidateRequests: true,
-	})
-	if err != nil {
-		return result, fmt.Errorf("invalid Bruno repository: %w", err)
+	roots := gitsync.Discover(files)
+	parsed := parseRepositoryRoots(roots, row.Name)
+	result.Errors = parsed.Errors
+	if len(parsed.Collections) == 0 {
+		msg := "repository contains no importable collections"
+		if len(parsed.Errors) > 0 {
+			msg = strings.Join(parsed.Errors, "; ")
+		}
+		return result, fmt.Errorf("%s", msg)
 	}
 
 	existingCols := map[string]sqlc.ListBrunoSyncedCollectionsRow{}
@@ -324,14 +344,24 @@ func (h *Handler) syncBrunoSource(ctx context.Context, wsID, sourceID, userID uu
 	}
 
 	var rootColID uuid.UUID
+	var colPaths, reqPaths []string
 	err = h.store.WithTx(ctx, func(q *sqlc.Queries) error {
-		stats, rootID, err := h.applyBrunoTree(ctx, q, wsID, sourceID, userID, parsed, nil, existingCols, existingReqs)
-		if err != nil {
-			return err
+		for i, col := range parsed.Collections {
+			stats, rootID, err := h.applyBrunoTree(ctx, q, wsID, sourceID, userID, col, nil, existingCols, existingReqs)
+			if err != nil {
+				return err
+			}
+			if i == 0 {
+				rootColID = rootID
+			}
+			result.AddedCollections += stats.AddedCollections
+			result.UpdatedCollections += stats.UpdatedCollections
+			result.AddedRequests += stats.AddedRequests
+			result.UpdatedRequests += stats.UpdatedRequests
+			cP, rP := collectBrunoSourcePaths(col)
+			colPaths = append(colPaths, cP...)
+			reqPaths = append(reqPaths, rP...)
 		}
-		rootColID = rootID
-		result = stats
-		colPaths, reqPaths := collectBrunoSourcePaths(parsed)
 		removedReqs, err := q.DeleteBrunoSyncedRequestsNotInPaths(ctx, sqlc.DeleteBrunoSyncedRequestsNotInPathsParams{
 			BrunoSourceID: db.PGUUID(sourceID),
 			KeepPaths:     reqPaths,

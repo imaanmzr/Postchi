@@ -137,7 +137,12 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 				r.With(wsH.RequireRole("editor")).Post("/bruno-sources", impH.CreateBrunoSource)
 				r.With(wsH.RequireRole("editor")).Patch("/bruno-sources/{sourceId}", impH.UpdateBrunoSource)
 				r.With(wsH.RequireRole("editor")).Delete("/bruno-sources/{sourceId}", impH.DeleteBrunoSource)
+				r.With(wsH.RequireRole("viewer")).Get("/collection-sources", impH.ListBrunoSources)
+				r.With(wsH.RequireRole("editor")).Post("/collection-sources", impH.CreateBrunoSource)
+				r.With(wsH.RequireRole("editor")).Patch("/collection-sources/{sourceId}", impH.UpdateBrunoSource)
+				r.With(wsH.RequireRole("editor")).Delete("/collection-sources/{sourceId}", impH.DeleteBrunoSource)
 				r.With(wsH.RequireRole("editor")).Post("/imports/bruno/git", impH.ImportBrunoGit)
+				r.With(wsH.RequireRole("editor")).Post("/imports/git", impH.ImportCollectionGit)
 			})
 
 			r.Post("/collections", colH.Create)
@@ -187,6 +192,7 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 
 			r.Post("/doc-sources/{id}/sync", docsyncH.SyncSource)
 			r.Post("/bruno-sources/{id}/sync", impH.SyncBrunoSource)
+			r.Post("/collection-sources/{id}/sync", impH.SyncCollectionSource)
 
 			r.Get("/environments", envH.List)
 			r.Post("/environments", envH.Create)

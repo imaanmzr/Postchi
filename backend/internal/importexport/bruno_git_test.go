@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/imaanmzr/postchi/backend/internal/importexport/gitsync"
 	"github.com/imaanmzr/postchi/backend/internal/shared/gitrepo"
 )
 
@@ -50,7 +51,7 @@ func TestFetchBrunoRepositoryFiltersFiles(t *testing.T) {
 }
 
 func TestRelativeRepositoryPath(t *testing.T) {
-	if got := relativeRepositoryPath("collections/api/orders/list.bru", "collections/api"); got != "orders/list.bru" {
+	if got := gitsync.RelativeRepositoryPath("collections/api/orders/list.bru", "collections/api"); got != "orders/list.bru" {
 		t.Fatalf("relative path = %q", got)
 	}
 }

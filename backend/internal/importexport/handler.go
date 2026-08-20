@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -26,8 +27,9 @@ import (
 )
 
 type Handler struct {
-	store  *db.Store
-	crypto *crypto.Service
+	store        *db.Store
+	crypto       *crypto.Service
+	sourceSyncMu sync.Map
 }
 
 func NewHandler(store *db.Store, cryptoSvc *crypto.Service) *Handler {
@@ -61,8 +63,8 @@ func (h *Handler) ImportPostman(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "workspace_id required")
 		return
 	}
-	if err := h.validateWorkspace(r.Context(), wsID); err != nil {
-		respond.Error(w, http.StatusBadRequest, err.Error())
+	if err := h.validateWorkspaceEditor(r.Context(), wsID, userID); err != nil {
+		respond.Error(w, http.StatusForbidden, err.Error())
 		return
 	}
 	body, err := io.ReadAll(r.Body)
@@ -70,16 +72,17 @@ func (h *Handler) ImportPostman(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	col, err := ParsePostman(body)
+	parsed, err := ParsePostmanWithWarnings(body)
 	if err != nil {
-		respond.Error(w, http.StatusBadRequest, "invalid postman collection")
+		respond.Error(w, http.StatusBadRequest, "invalid postman collection: "+err.Error())
 		return
 	}
-	_, result, err := h.persistCollection(r.Context(), wsID, userID, col, nil)
+	_, result, err := h.persistCollection(r.Context(), wsID, userID, parsed.Collection, nil)
 	if err != nil {
 		respond.Error(w, http.StatusInternalServerError, "import failed: "+err.Error())
 		return
 	}
+	result.Warnings = parsed.Warnings
 	h.writeImportResult(w, result)
 }
 
@@ -94,8 +97,8 @@ func (h *Handler) ImportOpenAPI(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "workspace_id required")
 		return
 	}
-	if err := h.validateWorkspace(r.Context(), wsID); err != nil {
-		respond.Error(w, http.StatusBadRequest, err.Error())
+	if err := h.validateWorkspaceEditor(r.Context(), wsID, userID); err != nil {
+		respond.Error(w, http.StatusForbidden, err.Error())
 		return
 	}
 	body, err := io.ReadAll(r.Body)
@@ -131,8 +134,8 @@ func (h *Handler) ImportOpenCollection(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "workspace_id required")
 		return
 	}
-	if err := h.validateWorkspace(r.Context(), wsID); err != nil {
-		respond.Error(w, http.StatusBadRequest, err.Error())
+	if err := h.validateWorkspaceEditor(r.Context(), wsID, userID); err != nil {
+		respond.Error(w, http.StatusForbidden, err.Error())
 		return
 	}
 	body, err := io.ReadAll(r.Body)
@@ -164,8 +167,8 @@ func (h *Handler) ImportBruno(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "workspace_id required")
 		return
 	}
-	if err := h.validateWorkspace(r.Context(), wsID); err != nil {
-		respond.Error(w, http.StatusBadRequest, err.Error())
+	if err := h.validateWorkspaceEditor(r.Context(), wsID, userID); err != nil {
+		respond.Error(w, http.StatusForbidden, err.Error())
 		return
 	}
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
@@ -188,20 +191,18 @@ func (h *Handler) ImportBruno(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(strings.ToLower(header.Filename), ".zip") {
 		_, result, err = h.importBrunoZip(r.Context(), wsID, userID, data)
 	} else {
-		parsed := bruno.Parse(string(data))
-		col := model.Collection{Name: parsed.Name, Variables: bruVarsToSpec(bruno.ToVars(parsed.Sections["vars:pre-request"], parsed.Sections["vars:post-response"]))}
-		if strings.Contains(header.Filename, "collection") || strings.Contains(header.Filename, "folder") {
-			_, result, err = h.persistCollection(r.Context(), wsID, userID, col, nil)
-		} else {
-			col.Name = parsed.Name
-			if col.Name == "" {
-				col.Name = "Imported Bruno"
-			}
-			col.Requests = []model.Request{bruToNorm(bruno.ToRequest(parsed))}
-			_, result, err = h.persistCollection(r.Context(), wsID, userID, col, nil)
+		col, parseErr := parseBrunoSingleFile(data, header.Filename)
+		if parseErr != nil {
+			respond.Error(w, http.StatusBadRequest, parseErr.Error())
+			return
 		}
+		_, result, err = h.persistCollection(r.Context(), wsID, userID, col, nil)
 	}
 	if err != nil {
+		if strings.Contains(err.Error(), "collection.bru not found") {
+			respond.Error(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
 		respond.Error(w, http.StatusInternalServerError, "bruno import failed: "+err.Error())
 		return
 	}

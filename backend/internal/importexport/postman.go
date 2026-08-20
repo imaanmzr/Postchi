@@ -80,10 +80,23 @@ type postmanEvent struct {
 	} `json:"script"`
 }
 
+type PostmanParseResult struct {
+	Collection model.Collection
+	Warnings   []string
+}
+
 func ParsePostman(data []byte) (model.Collection, error) {
+	result, err := ParsePostmanWithWarnings(data)
+	if err != nil {
+		return model.Collection{}, err
+	}
+	return result.Collection, nil
+}
+
+func ParsePostmanWithWarnings(data []byte) (PostmanParseResult, error) {
 	var col postmanCollection
 	if err := json.Unmarshal(data, &col); err != nil {
-		return model.Collection{}, err
+		return PostmanParseResult{}, err
 	}
 	out := model.Collection{Name: col.Info.Name, Variables: domain.EmptyVariablesSpec()}
 	for _, v := range col.Variable {
@@ -100,11 +113,12 @@ func ParsePostman(data []byte) (model.Collection, error) {
 		}
 	}
 	out.Auth = mapPostmanAuth(col.Auth)
-	convertItems(col.Item, &out)
-	return out, nil
+	var warnings []string
+	convertItems(col.Item, &out, &warnings)
+	return PostmanParseResult{Collection: out, Warnings: warnings}, nil
 }
 
-func convertItems(items []postmanItem, parent *model.Collection) {
+func convertItems(items []postmanItem, parent *model.Collection, warnings *[]string) {
 	for i, item := range items {
 		if item.Request == nil {
 			child := model.Collection{
@@ -122,12 +136,13 @@ func convertItems(items []postmanItem, parent *model.Collection) {
 				}
 			}
 			if len(item.Item) > 0 {
-				convertItems(item.Item, &child)
+				convertItems(item.Item, &child, warnings)
 			}
 			parent.Children = append(parent.Children, child)
 			continue
 		}
 		if item.Request.Method == "" {
+			*warnings = append(*warnings, fmt.Sprintf("skipped item %q: missing HTTP method", item.Name))
 			continue
 		}
 		url, urlParams := parsePostmanURL(item.Request.URL)
