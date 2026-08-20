@@ -4,6 +4,7 @@ import type { DocSummary } from '~/utils/docsTree'
 export interface WorkspaceDoc extends DocSummary {
   content_md: string
   linked_operation_ids: string[]
+  linked_request_names: string[]
 }
 
 export interface DocGraphNode {
@@ -244,7 +245,7 @@ export const useDocsStore = defineStore('docs', {
       const api = useApi()
       this.analyzingLinks = true
       try {
-        const result = await api.post<{ pending_total: number }>(
+        const result = await api.post<{ pending_total: number, auto_linked?: number }>(
           `/api/workspaces/${workspaceId}/doc-links/analyze`,
         )
         this.pendingSuggestionCount = result.pending_total ?? 0

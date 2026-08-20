@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/imaanmzr/postchi/backend/internal/docsync/linkmatcher"
 	"github.com/imaanmzr/postchi/backend/internal/shared/gitrepo"
 )
 
@@ -67,6 +68,13 @@ func normalizeRepoConfig(config map[string]any) (map[string]any, error) {
 			config["branch"] = parsed.Branch
 		}
 		config["path_prefix"] = parsed.PathPrefix
+	}
+	if tmpl, ok := config["link_template"].(string); ok {
+		tmpl = strings.TrimSpace(tmpl)
+		if tmpl != "" && !linkmatcher.ValidateLinkTemplate(tmpl) {
+			return nil, fmt.Errorf("link_template must include {request_slug} or {request_name}")
+		}
+		config["link_template"] = tmpl
 	}
 	return config, nil
 }

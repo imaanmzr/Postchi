@@ -117,6 +117,26 @@ func TestGitClientFromConfigIgnoresStaleProvider(t *testing.T) {
 	}
 }
 
+func TestNormalizeRepoConfigLinkTemplate(t *testing.T) {
+	_, err := normalizeRepoConfig(map[string]any{
+		"repo_url":      "https://github.com/acme/docs.git",
+		"link_template": "docs/static.md",
+	})
+	if err == nil {
+		t.Fatal("expected invalid link_template error")
+	}
+	out, err := normalizeRepoConfig(map[string]any{
+		"repo_url":      "https://github.com/acme/docs.git",
+		"link_template": "docs/{request_slug}.md",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out["link_template"] != "docs/{request_slug}.md" {
+		t.Fatalf("link_template: %v", out["link_template"])
+	}
+}
+
 func TestGitClientFromConfig(t *testing.T) {
 	client, err := gitClientFromConfig(map[string]any{
 		"repo_url":    "https://gitlab.internal.example/acme/docs",

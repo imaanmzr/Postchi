@@ -243,6 +243,7 @@ CREATE TABLE workspace_docs (
     source_path TEXT NOT NULL DEFAULT '',
     is_local BOOLEAN NOT NULL DEFAULT false,
     linked_operation_ids TEXT[] NOT NULL DEFAULT '{}',
+    linked_request_names TEXT[] NOT NULL DEFAULT '{}',
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (workspace_id, slug)
 );

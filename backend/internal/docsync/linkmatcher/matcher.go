@@ -16,6 +16,7 @@ type Doc struct {
 	SourcePath         string
 	ContentMD          string
 	LinkedOperationIDs []string
+	LinkedRequestNames []string
 }
 
 type Request struct {
@@ -24,6 +25,7 @@ type Request struct {
 	Method            string
 	URL               string
 	SourceOperationID string
+	CollectionID      string
 	CollectionName    string
 }
 
@@ -53,10 +55,6 @@ func Analyze(docs []Doc, requests []Request, skip func(docID, requestID string) 
 				continue
 			}
 			if c, ok := matchTitleSimilarity(doc, req); ok {
-				out = append(out, c)
-				continue
-			}
-			if c, ok := matchFolderAlignment(doc, req); ok {
 				out = append(out, c)
 			}
 		}
@@ -94,7 +92,7 @@ func matchPathAlignment(doc Doc, req Request) (Candidate, bool) {
 	}
 	docSeg = normalizeToken(docSeg)
 	reqSeg = normalizeToken(reqSeg)
-	if docSeg == reqSeg || strings.Contains(docSeg, reqSeg) || strings.Contains(reqSeg, docSeg) {
+	if docSeg == reqSeg {
 		return Candidate{
 			DocID: doc.ID, RequestID: req.ID,
 			Reason: "path_alignment", Confidence: "high",
@@ -117,28 +115,11 @@ func matchTitleSimilarity(doc Doc, req Request) (Candidate, bool) {
 		}
 	}
 	score := float64(overlap) / float64(len(reqTokens))
-	if score >= 0.6 && overlap >= 2 {
+	if score >= 1.0 && overlap >= 2 {
 		return Candidate{
 			DocID: doc.ID, RequestID: req.ID,
 			Reason: "title_similarity", Confidence: "medium",
 			Evidence: map[string]string{"score": formatScore(score)},
-		}, true
-	}
-	return Candidate{}, false
-}
-
-func matchFolderAlignment(doc Doc, req Request) (Candidate, bool) {
-	docFolder := folderPath(doc.SourcePath)
-	reqFolder := normalizeToken(req.CollectionName)
-	if docFolder == "" || reqFolder == "" {
-		return Candidate{}, false
-	}
-	docFolderNorm := normalizeToken(strings.ReplaceAll(docFolder, "/", " "))
-	if strings.Contains(docFolderNorm, reqFolder) || strings.Contains(reqFolder, docFolderNorm) {
-		return Candidate{
-			DocID: doc.ID, RequestID: req.ID,
-			Reason: "folder_alignment", Confidence: "medium",
-			Evidence: map[string]string{"doc_folder": docFolder, "collection": req.CollectionName},
 		}, true
 	}
 	return Candidate{}, false
@@ -158,17 +139,6 @@ func lastPathSegment(paths ...string) string {
 				return seg
 			}
 		}
-	}
-	return ""
-}
-
-func folderPath(sourcePath string) string {
-	sourcePath = strings.Trim(sourcePath, "/")
-	if sourcePath == "" {
-		return ""
-	}
-	if i := strings.LastIndex(sourcePath, "/"); i >= 0 {
-		return sourcePath[:i]
 	}
 	return ""
 }

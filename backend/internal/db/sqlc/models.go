@@ -343,6 +343,7 @@ type WorkspaceDoc struct {
 	SourcePath         string             `json:"source_path"`
 	IsLocal            bool               `json:"is_local"`
 	LinkedOperationIds []string           `json:"linked_operation_ids"`
+	LinkedRequestNames []string           `json:"linked_request_names"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 

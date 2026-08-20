@@ -9,6 +9,7 @@ import (
 
 	"github.com/imaanmzr/postchi/backend/internal/db"
 	"github.com/imaanmzr/postchi/backend/internal/db/sqlc"
+	"github.com/imaanmzr/postchi/backend/internal/docsync/linkmatcher"
 	"github.com/imaanmzr/postchi/backend/internal/shared/operationid"
 	"github.com/imaanmzr/postchi/backend/internal/shared/respond"
 )
@@ -63,6 +64,39 @@ func (h *Handler) ListDocRequestLinks(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			rid := db.FromPGUUID(req.ID).String()
+			byRequest[rid] = &entry{
+				item: DocRequestLinkItem{
+					RequestID:         rid,
+					RequestName:       req.Name,
+					Method:            req.Method,
+					URL:               req.Url,
+					SourceOperationID: req.SourceOperationID,
+					LinkSources:       []string{"frontmatter"},
+				},
+			}
+		}
+	}
+
+	if len(doc.LinkedRequestNames) > 0 {
+		reqRows, err := h.store.ListRequestsByWorkspace(ctx, db.PGUUID(wsID))
+		if err != nil {
+			respond.Error(w, http.StatusInternalServerError, "query failed")
+			return
+		}
+		nameSet := make(map[string]struct{}, len(doc.LinkedRequestNames))
+		for _, n := range doc.LinkedRequestNames {
+			nameSet[n] = struct{}{}
+		}
+		for _, req := range reqRows {
+			slug := linkmatcher.RequestSlug(linkmatcher.Request{Name: req.Name})
+			if _, ok := nameSet[slug]; !ok {
+				continue
+			}
+			rid := db.FromPGUUID(req.ID).String()
+			if e, ok := byRequest[rid]; ok {
+				e.item.LinkSources = appendUniqueSource(e.item.LinkSources, "frontmatter")
+				continue
+			}
 			byRequest[rid] = &entry{
 				item: DocRequestLinkItem{
 					RequestID:         rid,

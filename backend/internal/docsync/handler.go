@@ -50,6 +50,7 @@ type WorkspaceDoc struct {
 	SourcePath         string   `json:"source_path"`
 	IsLocal            bool     `json:"is_local"`
 	LinkedOperationIDs []string `json:"linked_operation_ids,omitempty"`
+	LinkedRequestNames []string `json:"linked_request_names,omitempty"`
 	UpdatedAt          string   `json:"updated_at"`
 }
 
@@ -133,15 +134,16 @@ func (h *Handler) UpdateSource(w http.ResponseWriter, r *http.Request) {
 	wsID, _ := uuid.Parse(chi.URLParam(r, "id"))
 	sourceID, _ := uuid.Parse(chi.URLParam(r, "sourceId"))
 	var req struct {
-		Name        string         `json:"name"`
-		Config      map[string]any `json:"config"`
-		AccessToken string         `json:"access_token"`
+		Name         string         `json:"name"`
+		Config       map[string]any `json:"config"`
+		AccessToken  string         `json:"access_token"`
+		CollectionID *string        `json:"collection_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	if req.Name == "" && req.Config == nil && strings.TrimSpace(req.AccessToken) == "" {
+	if req.Name == "" && req.Config == nil && strings.TrimSpace(req.AccessToken) == "" && req.CollectionID == nil {
 		respond.Error(w, http.StatusBadRequest, "nothing to update")
 		return
 	}
@@ -151,6 +153,16 @@ func (h *Handler) UpdateSource(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Name != "" {
 		params.Name = &req.Name
+	}
+	if req.CollectionID != nil {
+		params.SetCollectionID = true
+		colID := pgtype.UUID{Valid: false}
+		if cid := strings.TrimSpace(*req.CollectionID); cid != "" {
+			if parsed, err := uuid.Parse(cid); err == nil {
+				colID = db.PGUUID(parsed)
+			}
+		}
+		params.CollectionID = colID
 	}
 	if req.Config != nil {
 		normalized, err := normalizeRepoConfig(req.Config)
@@ -235,17 +247,18 @@ func (h *Handler) SyncSource(w http.ResponseWriter, r *http.Request) {
 	_ = json.Unmarshal(row.Config, &config)
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
-	count, meta, err := h.syncGitDocs(ctx, db.FromPGUUID(row.WorkspaceID), id, config, row.AccessTokenEncrypted)
+	count, meta, err := h.syncGitDocs(ctx, db.FromPGUUID(row.WorkspaceID), id, config, row.AccessTokenEncrypted, row.CollectionID)
 	if err != nil {
 		respond.Error(w, http.StatusBadRequest, "sync failed: "+err.Error())
 		return
 	}
 	_ = h.store.UpdateDocSourceLastSynced(r.Context(), db.PGUUID(id))
 	respond.JSON(w, http.StatusOK, map[string]any{
-		"synced": count,
-		"total":  meta.total,
-		"capped": meta.capped,
-		"errors": meta.errors,
+		"synced":      count,
+		"total":       meta.total,
+		"capped":      meta.capped,
+		"errors":      meta.errors,
+		"auto_linked": meta.autoLinked,
 	})
 }
 
@@ -294,7 +307,7 @@ func (h *Handler) UpdateDoc(w http.ResponseWriter, r *http.Request) {
 	if req.ContentMD != nil {
 		content = *req.ContentMD
 	}
-	parsedTitle, ops, body := parseMarkdownDoc(content, slug+".md")
+	parsedTitle, ops, requestNames, body := parseMarkdownDoc(content, slug+".md")
 	if parsedTitle != slug+".md" && parsedTitle != slug && req.ContentMD != nil {
 		if req.Title == nil {
 			title = parsedTitle
@@ -312,6 +325,7 @@ func (h *Handler) UpdateDoc(w http.ResponseWriter, r *http.Request) {
 		Title:              title,
 		ContentMd:          content,
 		LinkedOperationIds: stringSliceOrEmpty(ops),
+		LinkedRequestNames: stringSliceOrEmpty(requestNames),
 	})
 	if err != nil {
 		respond.Error(w, http.StatusInternalServerError, "update failed")
@@ -364,6 +378,7 @@ func (h *Handler) CreateDoc(w http.ResponseWriter, r *http.Request) {
 		ContentMd:          content,
 		SourcePath:         sourcePath,
 		LinkedOperationIds: []string{},
+		LinkedRequestNames: []string{},
 	})
 	if err != nil {
 		respond.Error(w, http.StatusConflict, "doc already exists at this path")
@@ -429,15 +444,15 @@ func (h *Handler) ListDocs(w http.ResponseWriter, r *http.Request) {
 }
 
 func mapWorkspaceDoc(row sqlc.ListWorkspaceDocsRow) WorkspaceDoc {
-	return workspaceDocFields(row.ID, row.WorkspaceID, row.Slug, row.Title, row.ContentMd, row.SourcePath, row.IsLocal, row.LinkedOperationIds, row.UpdatedAt)
+	return workspaceDocFields(row.ID, row.WorkspaceID, row.Slug, row.Title, row.ContentMd, row.SourcePath, row.IsLocal, row.LinkedOperationIds, row.LinkedRequestNames, row.UpdatedAt)
 }
 
 func mapWorkspaceDocFromRow(row sqlc.GetWorkspaceDocBySlugRow) WorkspaceDoc {
-	return workspaceDocFields(row.ID, row.WorkspaceID, row.Slug, row.Title, row.ContentMd, row.SourcePath, row.IsLocal, row.LinkedOperationIds, row.UpdatedAt)
+	return workspaceDocFields(row.ID, row.WorkspaceID, row.Slug, row.Title, row.ContentMd, row.SourcePath, row.IsLocal, row.LinkedOperationIds, row.LinkedRequestNames, row.UpdatedAt)
 }
 
 func mapWorkspaceDocFromCreateRow(row sqlc.CreateWorkspaceDocRow) WorkspaceDoc {
-	return workspaceDocFields(row.ID, row.WorkspaceID, row.Slug, row.Title, row.ContentMd, row.SourcePath, row.IsLocal, row.LinkedOperationIds, row.UpdatedAt)
+	return workspaceDocFields(row.ID, row.WorkspaceID, row.Slug, row.Title, row.ContentMd, row.SourcePath, row.IsLocal, row.LinkedOperationIds, row.LinkedRequestNames, row.UpdatedAt)
 }
 
 func mapDocSummary(row sqlc.ListWorkspaceDocSummariesRow) WorkspaceDocSummary {
@@ -452,7 +467,7 @@ func mapDocSummary(row sqlc.ListWorkspaceDocSummariesRow) WorkspaceDocSummary {
 	}
 }
 
-func workspaceDocFields(id, wsID pgtype.UUID, slug, title, content, sourcePath string, isLocal bool, ops []string, updated pgtype.Timestamptz) WorkspaceDoc {
+func workspaceDocFields(id, wsID pgtype.UUID, slug, title, content, sourcePath string, isLocal bool, ops, requestNames []string, updated pgtype.Timestamptz) WorkspaceDoc {
 	return WorkspaceDoc{
 		ID:                 db.FromPGUUID(id).String(),
 		WorkspaceID:        db.FromPGUUID(wsID).String(),
@@ -462,6 +477,7 @@ func workspaceDocFields(id, wsID pgtype.UUID, slug, title, content, sourcePath s
 		SourcePath:         sourcePath,
 		IsLocal:            isLocal,
 		LinkedOperationIDs: ops,
+		LinkedRequestNames: requestNames,
 		UpdatedAt:          updated.Time.Format(time.RFC3339),
 	}
 }
@@ -481,12 +497,13 @@ const (
 )
 
 type syncResultMeta struct {
-	total  int
-	capped int
-	errors int
+	total      int
+	capped     int
+	errors     int
+	autoLinked int
 }
 
-func (h *Handler) syncGitDocs(ctx context.Context, wsID, sourceID uuid.UUID, config map[string]any, tokenEnc *string) (int, syncResultMeta, error) {
+func (h *Handler) syncGitDocs(ctx context.Context, wsID, sourceID uuid.UUID, config map[string]any, tokenEnc *string, collectionID pgtype.UUID) (int, syncResultMeta, error) {
 	meta := syncResultMeta{}
 	normalized, err := normalizeRepoConfig(config)
 	if err != nil {
@@ -571,7 +588,7 @@ func (h *Handler) syncGitDocs(ctx context.Context, wsID, sourceID uuid.UUID, con
 			}
 			continue
 		}
-		title, ops, body := parseMarkdownDoc(res.content, res.path)
+		title, ops, requestNames, body := parseMarkdownDoc(res.content, res.path)
 		slug := pathToSlug(res.path)
 		sourcePath := filePathToSourcePath(res.path)
 		if slug == "" || sourcePath == "" {
@@ -592,6 +609,7 @@ func (h *Handler) syncGitDocs(ctx context.Context, wsID, sourceID uuid.UUID, con
 			SourcePath:         sourcePath,
 			IsLocal:            false,
 			LinkedOperationIds: stringSliceOrEmpty(ops),
+			LinkedRequestNames: stringSliceOrEmpty(requestNames),
 		})
 		if err != nil {
 			meta.errors++
@@ -621,6 +639,13 @@ func (h *Handler) syncGitDocs(ctx context.Context, wsID, sourceID uuid.UUID, con
 		return 0, meta, fmt.Errorf("no markdown files synced from %d candidate file(s)", len(files))
 	}
 	meta.errors += fetchErrors
+
+	autoResult, err := h.autoLinkAfterDocSourceSync(ctx, wsID, sourceID, collectionID, config)
+	if err != nil {
+		return count, meta, fmt.Errorf("auto-link failed: %w", err)
+	}
+	meta.autoLinked = autoResult.AutoLinked
+
 	return count, meta, nil
 }
 

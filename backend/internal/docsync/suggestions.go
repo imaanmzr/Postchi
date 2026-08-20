@@ -9,147 +9,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/imaanmzr/postchi/backend/internal/auth"
 	"github.com/imaanmzr/postchi/backend/internal/db"
 	"github.com/imaanmzr/postchi/backend/internal/db/sqlc"
-	"github.com/imaanmzr/postchi/backend/internal/docsync/linkmatcher"
-	"github.com/imaanmzr/postchi/backend/internal/shared/operationid"
 	"github.com/imaanmzr/postchi/backend/internal/shared/respond"
 )
-
-func (h *Handler) AnalyzeDocLinks(w http.ResponseWriter, r *http.Request) {
-	wsID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		respond.Error(w, http.StatusBadRequest, "invalid workspace id")
-		return
-	}
-	ctx := r.Context()
-	refreshRejected := r.URL.Query().Get("refresh") == "rejected"
-
-	docRows, err := h.store.ListWorkspaceDocs(ctx, db.PGUUID(wsID))
-	if err != nil {
-		respond.Error(w, http.StatusInternalServerError, "query failed")
-		return
-	}
-	reqRows, err := h.store.ListRequestsByWorkspace(ctx, db.PGUUID(wsID))
-	if err != nil {
-		respond.Error(w, http.StatusInternalServerError, "query failed")
-		return
-	}
-
-	docs := make([]linkmatcher.Doc, 0, len(docRows))
-	docByID := make(map[string]linkmatcher.Doc, len(docRows))
-	for _, row := range docRows {
-		d := linkmatcher.Doc{
-			ID:                 db.FromPGUUID(row.ID).String(),
-			Slug:               row.Slug,
-			Title:              row.Title,
-			SourcePath:         row.SourcePath,
-			ContentMD:          row.ContentMd,
-			LinkedOperationIDs: row.LinkedOperationIds,
-		}
-		docs = append(docs, d)
-		docByID[d.ID] = d
-	}
-
-	collectionNames := map[string]string{}
-	for _, row := range reqRows {
-		collectionNames[db.FromPGUUID(row.CollectionID).String()] = ""
-	}
-	colRows, _ := h.store.ListCatalogCollections(ctx, db.PGUUID(wsID))
-	for _, c := range colRows {
-		collectionNames[db.FromPGUUID(c.ID).String()] = c.Name
-	}
-
-	requests := make([]linkmatcher.Request, 0, len(reqRows))
-	reqByID := make(map[string]linkmatcher.Request, len(reqRows))
-	for _, row := range reqRows {
-		cid := db.FromPGUUID(row.CollectionID).String()
-		req := linkmatcher.Request{
-			ID:                db.FromPGUUID(row.ID).String(),
-			Name:              row.Name,
-			Method:            row.Method,
-			URL:               row.Url,
-			SourceOperationID: row.SourceOperationID,
-			CollectionName:    collectionNames[cid],
-		}
-		requests = append(requests, req)
-		reqByID[req.ID] = req
-	}
-
-	manualRows, _ := h.store.ListManualDocLinksByWorkspace(ctx, db.PGUUID(wsID))
-	manualPairs := make(map[string]bool, len(manualRows))
-	for _, row := range manualRows {
-		key := db.FromPGUUID(row.WorkspaceDocID).String() + ":" + db.FromPGUUID(row.RequestID).String()
-		manualPairs[key] = true
-	}
-
-	existing, _ := h.store.ListDocLinkSuggestionsForAnalyze(ctx, db.PGUUID(wsID))
-	rejected := make(map[string]bool)
-	for _, row := range existing {
-		if row.Status == "rejected" && !refreshRejected {
-			key := db.FromPGUUID(row.WorkspaceDocID).String() + ":" + db.FromPGUUID(row.RequestID).String()
-			rejected[key] = true
-		}
-	}
-
-	skip := func(docID, requestID string) bool {
-		if manualPairs[docID+":"+requestID] {
-			return true
-		}
-		if rejected[docID+":"+requestID] {
-			return true
-		}
-		doc := docByID[docID]
-		req := reqByID[requestID]
-		if operationid.Matches(doc.LinkedOperationIDs, operationid.AliasesForRequest(req.Method, req.URL, req.SourceOperationID)) {
-			return true
-		}
-		return false
-	}
-
-	candidates := linkmatcher.Analyze(docs, requests, skip)
-	var upserted int
-	keepIDs := make([]pgtype.UUID, 0, len(candidates))
-	for _, c := range candidates {
-		docUUID, _ := uuid.Parse(c.DocID)
-		reqUUID, _ := uuid.Parse(c.RequestID)
-		row, err := h.store.UpsertDocLinkSuggestion(ctx, sqlc.UpsertDocLinkSuggestionParams{
-			WorkspaceID:    db.PGUUID(wsID),
-			WorkspaceDocID: db.PGUUID(docUUID),
-			RequestID:      db.PGUUID(reqUUID),
-			Reason:         c.Reason,
-			Confidence:     c.Confidence,
-			Evidence:       linkmatcher.EvidenceJSON(c.Evidence),
-		})
-		if err != nil {
-			respond.Error(w, http.StatusInternalServerError, "save failed")
-			return
-		}
-		keepIDs = append(keepIDs, row.ID)
-		upserted++
-	}
-	if len(keepIDs) > 0 {
-		_ = h.store.DeleteStalePendingDocLinkSuggestions(ctx, sqlc.DeleteStalePendingDocLinkSuggestionsParams{
-			WorkspaceID: db.PGUUID(wsID),
-			KeepIds:     keepIDs,
-		})
-	} else {
-		_ = h.store.DeleteStalePendingDocLinkSuggestions(ctx, sqlc.DeleteStalePendingDocLinkSuggestionsParams{
-			WorkspaceID: db.PGUUID(wsID),
-			KeepIds:     []pgtype.UUID{},
-		})
-	}
-
-	pendingCount, _ := h.store.CountPendingDocLinkSuggestions(ctx, db.PGUUID(wsID))
-	respond.JSON(w, http.StatusOK, map[string]int{
-		"created":       upserted,
-		"updated":       upserted,
-		"pending_total": int(pendingCount),
-	})
-}
 
 func (h *Handler) ListDocLinkSuggestions(w http.ResponseWriter, r *http.Request) {
 	wsID, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -238,7 +103,7 @@ func (h *Handler) AcceptAllDocLinkSuggestions(w http.ResponseWriter, r *http.Req
 	}
 	var accepted int
 	for _, row := range rows {
-		if row.Confidence != confidence {
+		if row.Confidence != confidence && !(confidence == "high" && row.Confidence == "exact") {
 			continue
 		}
 		if err := h.acceptSuggestion(ctx, wsID, db.FromPGUUID(row.ID), userID); err != nil {

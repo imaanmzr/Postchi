@@ -4,24 +4,27 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/imaanmzr/postchi/backend/internal/docsync/linkmatcher"
 	"github.com/imaanmzr/postchi/backend/internal/shared/operationid"
 )
 
 var frontmatterRe = regexp.MustCompile(`(?s)^---\s*\n(.*?)\n---\s*\n(.*)$`)
 
-func parseMarkdownDoc(content, path string) (title string, ops []string, body string) {
+func parseMarkdownDoc(content, path string) (title string, ops []string, requestNames []string, body string) {
 	title = strings.TrimSuffix(path, ".md")
 	body = content
 	m := frontmatterRe.FindStringSubmatch(content)
 	if len(m) != 3 {
-		return title, ops, body
+		return title, ops, requestNames, body
 	}
 	body = strings.TrimSpace(m[2])
 	fm := m[1]
 	title = parseFrontmatterTitle(fm, title)
-	rawOps := parseFrontmatterOperations(fm)
+	rawOps := parseFrontmatterKeyList(fm, "operations")
 	ops = normalizeLinkedOperations(rawOps)
-	return title, ops, body
+	rawRequests := parseFrontmatterRequests(fm)
+	requestNames = normalizeLinkedRequestNames(rawRequests)
+	return title, ops, requestNames, body
 }
 
 func parseFrontmatterTitle(fm, fallback string) string {
@@ -38,7 +41,31 @@ func parseFrontmatterTitle(fm, fallback string) string {
 	return fallback
 }
 
-func parseFrontmatterOperations(fm string) []string {
+func parseFrontmatterRequests(fm string) []string {
+	var out []string
+	out = append(out, parseFrontmatterScalar(fm, "request")...)
+	out = append(out, parseFrontmatterKeyList(fm, "requests")...)
+	return out
+}
+
+func parseFrontmatterScalar(fm, key string) []string {
+	prefix := key + ":"
+	for _, line := range strings.Split(fm, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+		val := strings.TrimSpace(strings.TrimPrefix(line, prefix))
+		val = strings.Trim(val, `"'`)
+		if val != "" {
+			return []string{val}
+		}
+	}
+	return nil
+}
+
+func parseFrontmatterKeyList(fm, key string) []string {
+	prefix := key + ":"
 	lines := strings.Split(fm, "\n")
 	var out []string
 	for i := 0; i < len(lines); i++ {
@@ -46,15 +73,14 @@ func parseFrontmatterOperations(fm string) []string {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if !strings.HasPrefix(line, "operations:") {
+		if !strings.HasPrefix(line, prefix) {
 			continue
 		}
-		rest := strings.TrimSpace(strings.TrimPrefix(line, "operations:"))
+		rest := strings.TrimSpace(strings.TrimPrefix(line, prefix))
 		if rest != "" {
-			out = append(out, parseOperationsInline(rest)...)
+			out = append(out, parseFrontmatterInlineList(rest)...)
 			continue
 		}
-		// Multi-line YAML array.
 		for i++; i < len(lines); i++ {
 			item := strings.TrimSpace(lines[i])
 			if item == "" {
@@ -74,7 +100,7 @@ func parseFrontmatterOperations(fm string) []string {
 	return out
 }
 
-func parseOperationsInline(raw string) []string {
+func parseFrontmatterInlineList(raw string) []string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return nil
@@ -104,6 +130,23 @@ func normalizeLinkedOperations(raw []string) []string {
 			seen[n] = struct{}{}
 			out = append(out, n)
 		}
+	}
+	return out
+}
+
+func normalizeLinkedRequestNames(raw []string) []string {
+	seen := make(map[string]struct{})
+	var out []string
+	for _, r := range raw {
+		n := linkmatcher.NormalizeSlug(r)
+		if n == "" {
+			continue
+		}
+		if _, ok := seen[n]; ok {
+			continue
+		}
+		seen[n] = struct{}{}
+		out = append(out, n)
 	}
 	return out
 }

@@ -92,9 +92,9 @@ func (q *Queries) CreateManualDocLink(ctx context.Context, arg CreateManualDocLi
 }
 
 const createWorkspaceDoc = `-- name: CreateWorkspaceDoc :one
-INSERT INTO workspace_docs (workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at)
-VALUES ($1, $2, $3, $4, $5, true, $6, now())
-RETURNING id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+INSERT INTO workspace_docs (workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at)
+VALUES ($1, $2, $3, $4, $5, true, $6, $7, now())
+RETURNING id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
 `
 
 type CreateWorkspaceDocParams struct {
@@ -104,6 +104,7 @@ type CreateWorkspaceDocParams struct {
 	ContentMd          string      `json:"content_md"`
 	SourcePath         string      `json:"source_path"`
 	LinkedOperationIds []string    `json:"linked_operation_ids"`
+	LinkedRequestNames []string    `json:"linked_request_names"`
 }
 
 type CreateWorkspaceDocRow struct {
@@ -115,6 +116,7 @@ type CreateWorkspaceDocRow struct {
 	SourcePath         string             `json:"source_path"`
 	IsLocal            bool               `json:"is_local"`
 	LinkedOperationIds []string           `json:"linked_operation_ids"`
+	LinkedRequestNames []string           `json:"linked_request_names"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
@@ -126,6 +128,7 @@ func (q *Queries) CreateWorkspaceDoc(ctx context.Context, arg CreateWorkspaceDoc
 		arg.ContentMd,
 		arg.SourcePath,
 		arg.LinkedOperationIds,
+		arg.LinkedRequestNames,
 	)
 	var i CreateWorkspaceDocRow
 	err := row.Scan(
@@ -137,6 +140,7 @@ func (q *Queries) CreateWorkspaceDoc(ctx context.Context, arg CreateWorkspaceDoc
 		&i.SourcePath,
 		&i.IsLocal,
 		&i.LinkedOperationIds,
+		&i.LinkedRequestNames,
 		&i.UpdatedAt,
 	)
 	return i, err
@@ -229,13 +233,14 @@ func (q *Queries) GetDocSource(ctx context.Context, arg GetDocSourceParams) (Get
 }
 
 const getDocSourceForSync = `-- name: GetDocSourceForSync :one
-SELECT workspace_id, source_type, config, access_token_encrypted
+SELECT workspace_id, collection_id, source_type, config, access_token_encrypted
 FROM doc_sources
 WHERE id = $1
 `
 
 type GetDocSourceForSyncRow struct {
 	WorkspaceID          pgtype.UUID `json:"workspace_id"`
+	CollectionID         pgtype.UUID `json:"collection_id"`
 	SourceType           string      `json:"source_type"`
 	Config               []byte      `json:"config"`
 	AccessTokenEncrypted *string     `json:"access_token_encrypted"`
@@ -246,6 +251,7 @@ func (q *Queries) GetDocSourceForSync(ctx context.Context, id pgtype.UUID) (GetD
 	var i GetDocSourceForSyncRow
 	err := row.Scan(
 		&i.WorkspaceID,
+		&i.CollectionID,
 		&i.SourceType,
 		&i.Config,
 		&i.AccessTokenEncrypted,
@@ -278,7 +284,7 @@ func (q *Queries) GetManualDocLink(ctx context.Context, arg GetManualDocLinkPara
 }
 
 const getWorkspaceDocByID = `-- name: GetWorkspaceDocByID :one
-SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
 FROM workspace_docs
 WHERE id = $1 AND workspace_id = $2
 `
@@ -297,6 +303,7 @@ type GetWorkspaceDocByIDRow struct {
 	SourcePath         string             `json:"source_path"`
 	IsLocal            bool               `json:"is_local"`
 	LinkedOperationIds []string           `json:"linked_operation_ids"`
+	LinkedRequestNames []string           `json:"linked_request_names"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
@@ -312,13 +319,14 @@ func (q *Queries) GetWorkspaceDocByID(ctx context.Context, arg GetWorkspaceDocBy
 		&i.SourcePath,
 		&i.IsLocal,
 		&i.LinkedOperationIds,
+		&i.LinkedRequestNames,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getWorkspaceDocBySlug = `-- name: GetWorkspaceDocBySlug :one
-SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
 FROM workspace_docs
 WHERE workspace_id = $1 AND slug = $2
 `
@@ -337,6 +345,7 @@ type GetWorkspaceDocBySlugRow struct {
 	SourcePath         string             `json:"source_path"`
 	IsLocal            bool               `json:"is_local"`
 	LinkedOperationIds []string           `json:"linked_operation_ids"`
+	LinkedRequestNames []string           `json:"linked_request_names"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
@@ -352,6 +361,7 @@ func (q *Queries) GetWorkspaceDocBySlug(ctx context.Context, arg GetWorkspaceDoc
 		&i.SourcePath,
 		&i.IsLocal,
 		&i.LinkedOperationIds,
+		&i.LinkedRequestNames,
 		&i.UpdatedAt,
 	)
 	return i, err
@@ -505,7 +515,7 @@ func (q *Queries) ListManualDocLinksByWorkspace(ctx context.Context, workspaceID
 }
 
 const listManualDocLinksForRequest = `-- name: ListManualDocLinksForRequest :many
-SELECT m.id AS link_id, d.id, d.slug, d.title, d.content_md, d.source_path, d.is_local, d.linked_operation_ids, d.updated_at
+SELECT m.id AS link_id, d.id, d.slug, d.title, d.content_md, d.source_path, d.is_local, d.linked_operation_ids, d.linked_request_names, d.updated_at
 FROM manual_doc_links m
 JOIN workspace_docs d ON d.id = m.workspace_doc_id
 WHERE m.request_id = $1
@@ -521,6 +531,7 @@ type ListManualDocLinksForRequestRow struct {
 	SourcePath         string             `json:"source_path"`
 	IsLocal            bool               `json:"is_local"`
 	LinkedOperationIds []string           `json:"linked_operation_ids"`
+	LinkedRequestNames []string           `json:"linked_request_names"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
@@ -542,6 +553,7 @@ func (q *Queries) ListManualDocLinksForRequest(ctx context.Context, requestID pg
 			&i.SourcePath,
 			&i.IsLocal,
 			&i.LinkedOperationIds,
+			&i.LinkedRequestNames,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -600,7 +612,7 @@ func (q *Queries) ListWorkspaceDocSummaries(ctx context.Context, workspaceID pgt
 }
 
 const listWorkspaceDocs = `-- name: ListWorkspaceDocs :many
-SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
 FROM workspace_docs
 WHERE workspace_id = $1
 ORDER BY source_path, title
@@ -615,6 +627,7 @@ type ListWorkspaceDocsRow struct {
 	SourcePath         string             `json:"source_path"`
 	IsLocal            bool               `json:"is_local"`
 	LinkedOperationIds []string           `json:"linked_operation_ids"`
+	LinkedRequestNames []string           `json:"linked_request_names"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
@@ -636,6 +649,63 @@ func (q *Queries) ListWorkspaceDocs(ctx context.Context, workspaceID pgtype.UUID
 			&i.SourcePath,
 			&i.IsLocal,
 			&i.LinkedOperationIds,
+			&i.LinkedRequestNames,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorkspaceDocsByDocSource = `-- name: ListWorkspaceDocsByDocSource :many
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
+FROM workspace_docs
+WHERE workspace_id = $1 AND doc_source_id = $2
+ORDER BY source_path, title
+`
+
+type ListWorkspaceDocsByDocSourceParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	DocSourceID pgtype.UUID `json:"doc_source_id"`
+}
+
+type ListWorkspaceDocsByDocSourceRow struct {
+	ID                 pgtype.UUID        `json:"id"`
+	WorkspaceID        pgtype.UUID        `json:"workspace_id"`
+	Slug               string             `json:"slug"`
+	Title              string             `json:"title"`
+	ContentMd          string             `json:"content_md"`
+	SourcePath         string             `json:"source_path"`
+	IsLocal            bool               `json:"is_local"`
+	LinkedOperationIds []string           `json:"linked_operation_ids"`
+	LinkedRequestNames []string           `json:"linked_request_names"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListWorkspaceDocsByDocSource(ctx context.Context, arg ListWorkspaceDocsByDocSourceParams) ([]ListWorkspaceDocsByDocSourceRow, error) {
+	rows, err := q.db.Query(ctx, listWorkspaceDocsByDocSource, arg.WorkspaceID, arg.DocSourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWorkspaceDocsByDocSourceRow{}
+	for rows.Next() {
+		var i ListWorkspaceDocsByDocSourceRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Slug,
+			&i.Title,
+			&i.ContentMd,
+			&i.SourcePath,
+			&i.IsLocal,
+			&i.LinkedOperationIds,
+			&i.LinkedRequestNames,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -649,7 +719,7 @@ func (q *Queries) ListWorkspaceDocs(ctx context.Context, workspaceID pgtype.UUID
 }
 
 const listWorkspaceDocsByOperation = `-- name: ListWorkspaceDocsByOperation :many
-SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
 FROM workspace_docs
 WHERE workspace_id = $1
   AND $2::text = ANY(linked_operation_ids)
@@ -670,6 +740,7 @@ type ListWorkspaceDocsByOperationRow struct {
 	SourcePath         string             `json:"source_path"`
 	IsLocal            bool               `json:"is_local"`
 	LinkedOperationIds []string           `json:"linked_operation_ids"`
+	LinkedRequestNames []string           `json:"linked_request_names"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
@@ -691,6 +762,7 @@ func (q *Queries) ListWorkspaceDocsByOperation(ctx context.Context, arg ListWork
 			&i.SourcePath,
 			&i.IsLocal,
 			&i.LinkedOperationIds,
+			&i.LinkedRequestNames,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -704,7 +776,7 @@ func (q *Queries) ListWorkspaceDocsByOperation(ctx context.Context, arg ListWork
 }
 
 const listWorkspaceDocsByOperationIDs = `-- name: ListWorkspaceDocsByOperationIDs :many
-SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
 FROM workspace_docs
 WHERE workspace_id = $1
   AND linked_operation_ids && $2::text[]
@@ -725,6 +797,7 @@ type ListWorkspaceDocsByOperationIDsRow struct {
 	SourcePath         string             `json:"source_path"`
 	IsLocal            bool               `json:"is_local"`
 	LinkedOperationIds []string           `json:"linked_operation_ids"`
+	LinkedRequestNames []string           `json:"linked_request_names"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
@@ -746,6 +819,7 @@ func (q *Queries) ListWorkspaceDocsByOperationIDs(ctx context.Context, arg ListW
 			&i.SourcePath,
 			&i.IsLocal,
 			&i.LinkedOperationIds,
+			&i.LinkedRequestNames,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -761,13 +835,16 @@ func (q *Queries) ListWorkspaceDocsByOperationIDs(ctx context.Context, arg ListW
 const updateDocSource = `-- name: UpdateDocSource :exec
 UPDATE doc_sources
 SET name = COALESCE($1, name),
-    config = COALESCE($2, config),
-    access_token_encrypted = COALESCE($3, access_token_encrypted)
-WHERE id = $4 AND workspace_id = $5
+    collection_id = CASE WHEN $2::boolean THEN $3 ELSE collection_id END,
+    config = COALESCE($4, config),
+    access_token_encrypted = COALESCE($5, access_token_encrypted)
+WHERE id = $6 AND workspace_id = $7
 `
 
 type UpdateDocSourceParams struct {
 	Name                 *string     `json:"name"`
+	SetCollectionID      bool        `json:"set_collection_id"`
+	CollectionID         pgtype.UUID `json:"collection_id"`
 	Config               []byte      `json:"config"`
 	AccessTokenEncrypted *string     `json:"access_token_encrypted"`
 	ID                   pgtype.UUID `json:"id"`
@@ -777,6 +854,8 @@ type UpdateDocSourceParams struct {
 func (q *Queries) UpdateDocSource(ctx context.Context, arg UpdateDocSourceParams) error {
 	_, err := q.db.Exec(ctx, updateDocSource,
 		arg.Name,
+		arg.SetCollectionID,
+		arg.CollectionID,
 		arg.Config,
 		arg.AccessTokenEncrypted,
 		arg.ID,
@@ -801,14 +880,16 @@ UPDATE workspace_docs
 SET title = $1,
     content_md = $2,
     linked_operation_ids = $3,
+    linked_request_names = $4,
     updated_at = now()
-WHERE workspace_id = $4 AND slug = $5
+WHERE workspace_id = $5 AND slug = $6
 `
 
 type UpdateWorkspaceDocParams struct {
 	Title              string      `json:"title"`
 	ContentMd          string      `json:"content_md"`
 	LinkedOperationIds []string    `json:"linked_operation_ids"`
+	LinkedRequestNames []string    `json:"linked_request_names"`
 	WorkspaceID        pgtype.UUID `json:"workspace_id"`
 	Slug               string      `json:"slug"`
 }
@@ -818,6 +899,7 @@ func (q *Queries) UpdateWorkspaceDoc(ctx context.Context, arg UpdateWorkspaceDoc
 		arg.Title,
 		arg.ContentMd,
 		arg.LinkedOperationIds,
+		arg.LinkedRequestNames,
 		arg.WorkspaceID,
 		arg.Slug,
 	)
@@ -825,13 +907,14 @@ func (q *Queries) UpdateWorkspaceDoc(ctx context.Context, arg UpdateWorkspaceDoc
 }
 
 const upsertWorkspaceDoc = `-- name: UpsertWorkspaceDoc :exec
-INSERT INTO workspace_docs (workspace_id, doc_source_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+INSERT INTO workspace_docs (workspace_id, doc_source_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
 ON CONFLICT (workspace_id, source_path) WHERE source_path <> '' DO UPDATE SET
     slug = EXCLUDED.slug,
     title = EXCLUDED.title,
     content_md = EXCLUDED.content_md,
     linked_operation_ids = EXCLUDED.linked_operation_ids,
+    linked_request_names = EXCLUDED.linked_request_names,
     updated_at = now(),
     doc_source_id = EXCLUDED.doc_source_id,
     is_local = EXCLUDED.is_local
@@ -846,6 +929,7 @@ type UpsertWorkspaceDocParams struct {
 	SourcePath         string      `json:"source_path"`
 	IsLocal            bool        `json:"is_local"`
 	LinkedOperationIds []string    `json:"linked_operation_ids"`
+	LinkedRequestNames []string    `json:"linked_request_names"`
 }
 
 func (q *Queries) UpsertWorkspaceDoc(ctx context.Context, arg UpsertWorkspaceDocParams) error {
@@ -858,6 +942,7 @@ func (q *Queries) UpsertWorkspaceDoc(ctx context.Context, arg UpsertWorkspaceDoc
 		arg.SourcePath,
 		arg.IsLocal,
 		arg.LinkedOperationIds,
+		arg.LinkedRequestNames,
 	)
 	return err
 }

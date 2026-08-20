@@ -2,6 +2,7 @@ export interface GitRepoFormFields {
   repo_url: string
   branch: string
   path_prefix: string
+  link_template?: string
 }
 
 export function detectedGitProvider(repoUrl: string): string {
@@ -34,9 +35,14 @@ export function applyGitLabBrowseUrlHints(form: GitRepoFormFields) {
 }
 
 export function gitRepoConfigPayload(form: GitRepoFormFields) {
-  return {
+  const config: Record<string, string> = {
     repo_url: form.repo_url.trim(),
     branch: form.branch.trim() || 'main',
     path_prefix: form.path_prefix.trim(),
   }
+  const linkTemplate = form.link_template?.trim()
+  if (linkTemplate) {
+    config.link_template = linkTemplate
+  }
+  return config
 }

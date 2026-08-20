@@ -18,6 +18,23 @@
         <Input v-model="gitForm.branch" placeholder="Branch (default: main)" />
         <Input v-model="gitForm.path_prefix" placeholder="Path prefix (optional, e.g. docs — auto-filled from browser links)" />
         <Input
+          v-model="gitForm.link_template"
+          placeholder="Link template (optional, e.g. docs/{collection_slug}/{request_slug}.md)"
+        />
+        <p class="text-xs text-muted">
+          Template placeholders: <code>{request_slug}</code>, <code>{request_name}</code>, <code>{collection_slug}</code>, <code>{collection_name}</code>, <code>{method}</code>, <code>{operation_id}</code>, <code>{path_prefix}</code>
+        </p>
+        <select
+          v-model="gitForm.collection_id"
+          class="w-full text-sm rounded px-2 py-1.5 border"
+          style="border-color: var(--color-border); background: var(--color-surface-1)"
+        >
+          <option value="">API collection (optional — scopes auto-linking)</option>
+          <option v-for="col in workspaceCollections" :key="col.id" :value="col.id">
+            {{ col.name }}
+          </option>
+        </select>
+        <Input
           v-model="gitForm.access_token"
           type="password"
           autocomplete="off"
@@ -71,9 +88,10 @@
             <div class="text-xs text-muted truncate">
               {{ providerLabel(src) }} · {{ src.config?.repo_url }}
             </div>
-            <div v-if="src.config?.branch || src.config?.path_prefix" class="text-xs text-muted">
+            <div v-if="src.config?.branch || src.config?.path_prefix || src.config?.link_template" class="text-xs text-muted">
               Branch <code>{{ src.config?.branch || 'main' }}</code>
               <span v-if="src.config?.path_prefix"> · folder <code>{{ src.config.path_prefix }}</code></span>
+              <span v-if="src.config?.link_template"> · template <code>{{ src.config.link_template }}</code></span>
             </div>
           </div>
           <div class="flex gap-2 shrink-0">
@@ -105,6 +123,20 @@
           </p>
           <Input v-model="editForm.branch" placeholder="Branch" />
           <Input v-model="editForm.path_prefix" placeholder="Path prefix" />
+          <Input
+            v-model="editForm.link_template"
+            placeholder="Link template (e.g. docs/{collection_slug}/{request_slug}.md)"
+          />
+          <select
+            v-model="editForm.collection_id"
+            class="w-full text-sm rounded px-2 py-1.5 border"
+            style="border-color: var(--color-border); background: var(--color-surface-1)"
+          >
+            <option value="">API collection (optional)</option>
+            <option v-for="col in workspaceCollections" :key="col.id" :value="col.id">
+              {{ col.name }}
+            </option>
+          </select>
           <Input
             v-model="editForm.access_token"
             type="password"
@@ -159,17 +191,24 @@ interface DocSource {
   id: string
   name: string
   source_type: string
+  collection_id?: string
   has_access_token?: boolean
   config?: {
     provider?: string
     repo_url?: string
     branch?: string
     path_prefix?: string
+    link_template?: string
   }
 }
 
 const props = defineProps<{ workspaceId: string }>()
 const api = useApi()
+const colStore = useCollectionsStore()
+
+const workspaceCollections = computed(() =>
+  colStore.collections.filter(c => c.workspace_id === props.workspaceId),
+)
 
 const sources = ref<DocSource[]>([])
 const tokens = ref<any[]>([])
@@ -194,6 +233,8 @@ const gitForm = ref({
   repo_url: '',
   branch: 'main',
   path_prefix: '',
+  link_template: '',
+  collection_id: '',
   access_token: '',
 })
 
@@ -202,6 +243,8 @@ const editForm = ref({
   repo_url: '',
   branch: 'main',
   path_prefix: '',
+  link_template: '',
+  collection_id: '',
   access_token: '',
 })
 
@@ -211,6 +254,7 @@ watch(() => editForm.value.repo_url, () => {
 })
 
 onMounted(async () => {
+  await colStore.fetchCollections(props.workspaceId)
   await load()
 })
 
@@ -262,6 +306,7 @@ async function createGitSource() {
     await api.post(`/api/workspaces/${props.workspaceId}/doc-sources`, {
       name: gitForm.value.name,
       source_type: 'git',
+      collection_id: gitForm.value.collection_id || undefined,
       config: gitRepoConfigPayload(gitForm.value),
       access_token: gitForm.value.access_token || undefined,
     })
@@ -283,6 +328,8 @@ function toggleEdit(src: DocSource) {
     repo_url: src.config?.repo_url || '',
     branch: src.config?.branch || 'main',
     path_prefix: src.config?.path_prefix || '',
+    link_template: src.config?.link_template || '',
+    collection_id: src.collection_id || '',
     access_token: '',
   }
 }
@@ -293,6 +340,7 @@ async function updateSource(id: string) {
     const body: Record<string, unknown> = {
       name: editForm.value.name,
       config: gitRepoConfigPayload(editForm.value),
+      collection_id: editForm.value.collection_id || null,
     }
     if (editForm.value.access_token) {
       body.access_token = editForm.value.access_token
@@ -313,7 +361,7 @@ async function syncSource(id: string) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 330_000)
   try {
-    const result = await api.post<{ synced?: number, total?: number, capped?: number, errors?: number }>(`/api/doc-sources/${id}/sync`, undefined, {
+    const result = await api.post<{ synced?: number, total?: number, capped?: number, errors?: number, auto_linked?: number }>(`/api/doc-sources/${id}/sync`, undefined, {
       signal: controller.signal,
     })
     if (result?.synced != null) {
@@ -322,6 +370,7 @@ async function syncSource(id: string) {
       if (result.total != null) parts.push(`of ${result.total} found`)
       if (result.capped) parts.push(`(${result.capped} skipped — over limit)`)
       if (result.errors) parts.push(`(${result.errors} errors)`)
+      if (result.auto_linked) parts.push(`${result.auto_linked} auto-linked`)
       syncMessage.value = parts.join(' ')
     }
     if (analyzeAfterSync.value) {
@@ -348,7 +397,7 @@ async function analyzeDocLinks() {
   try {
     const docsStore = useDocsStore()
     const result = await docsStore.analyzeLinks(props.workspaceId)
-    linkAnalyzeMessage.value = `Analysis complete: ${result.pending_total ?? 0} pending suggestion(s).`
+    linkAnalyzeMessage.value = `Analysis complete: ${result.auto_linked ?? 0} auto-linked, ${result.pending_total ?? 0} pending suggestion(s).`
   } catch (e) {
     linkAnalyzeMessage.value = e instanceof Error ? e.message : 'Analyze failed'
   } finally {

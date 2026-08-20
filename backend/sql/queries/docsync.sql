@@ -10,13 +10,14 @@ VALUES (@workspace_id, @collection_id, @name, @source_type, @config, @access_tok
 RETURNING id;
 
 -- name: GetDocSourceForSync :one
-SELECT workspace_id, source_type, config, access_token_encrypted
+SELECT workspace_id, collection_id, source_type, config, access_token_encrypted
 FROM doc_sources
 WHERE id = @id;
 
 -- name: UpdateDocSource :exec
 UPDATE doc_sources
 SET name = COALESCE(sqlc.narg('name'), name),
+    collection_id = CASE WHEN @set_collection_id::boolean THEN @collection_id ELSE collection_id END,
     config = COALESCE(sqlc.narg('config'), config),
     access_token_encrypted = COALESCE(sqlc.narg('access_token_encrypted'), access_token_encrypted)
 WHERE id = @id AND workspace_id = @workspace_id;
@@ -40,7 +41,7 @@ DELETE FROM doc_sources
 WHERE id = @id AND workspace_id = @workspace_id;
 
 -- name: ListWorkspaceDocs :many
-SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
 FROM workspace_docs
 WHERE workspace_id = @workspace_id
 ORDER BY source_path, title;
@@ -52,17 +53,23 @@ WHERE workspace_id = @workspace_id
 ORDER BY source_path, title;
 
 -- name: ListWorkspaceDocsByOperation :many
-SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
 FROM workspace_docs
 WHERE workspace_id = @workspace_id
   AND sqlc.arg(operation_id)::text = ANY(linked_operation_ids)
 ORDER BY source_path, title;
 
 -- name: ListWorkspaceDocsByOperationIDs :many
-SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
 FROM workspace_docs
 WHERE workspace_id = @workspace_id
   AND linked_operation_ids && @operation_ids::text[]
+ORDER BY source_path, title;
+
+-- name: ListWorkspaceDocsByDocSource :many
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
+FROM workspace_docs
+WHERE workspace_id = @workspace_id AND doc_source_id = @doc_source_id
 ORDER BY source_path, title;
 
 -- name: ClearWorkspaceDocSlugConflict :exec
@@ -73,24 +80,25 @@ WHERE workspace_id = @workspace_id
   AND doc_source_id = @doc_source_id;
 
 -- name: UpsertWorkspaceDoc :exec
-INSERT INTO workspace_docs (workspace_id, doc_source_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at)
-VALUES (@workspace_id, @doc_source_id, @slug, @title, @content_md, @source_path, @is_local, @linked_operation_ids, now())
+INSERT INTO workspace_docs (workspace_id, doc_source_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at)
+VALUES (@workspace_id, @doc_source_id, @slug, @title, @content_md, @source_path, @is_local, @linked_operation_ids, @linked_request_names, now())
 ON CONFLICT (workspace_id, source_path) WHERE source_path <> '' DO UPDATE SET
     slug = EXCLUDED.slug,
     title = EXCLUDED.title,
     content_md = EXCLUDED.content_md,
     linked_operation_ids = EXCLUDED.linked_operation_ids,
+    linked_request_names = EXCLUDED.linked_request_names,
     updated_at = now(),
     doc_source_id = EXCLUDED.doc_source_id,
     is_local = EXCLUDED.is_local;
 
 -- name: CreateWorkspaceDoc :one
-INSERT INTO workspace_docs (workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at)
-VALUES (@workspace_id, @slug, @title, @content_md, @source_path, true, @linked_operation_ids, now())
-RETURNING id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at;
+INSERT INTO workspace_docs (workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at)
+VALUES (@workspace_id, @slug, @title, @content_md, @source_path, true, @linked_operation_ids, @linked_request_names, now())
+RETURNING id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at;
 
 -- name: GetWorkspaceDocBySlug :one
-SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
 FROM workspace_docs
 WHERE workspace_id = @workspace_id AND slug = @slug;
 
@@ -99,11 +107,12 @@ UPDATE workspace_docs
 SET title = @title,
     content_md = @content_md,
     linked_operation_ids = @linked_operation_ids,
+    linked_request_names = @linked_request_names,
     updated_at = now()
 WHERE workspace_id = @workspace_id AND slug = @slug;
 
 -- name: GetWorkspaceDocByID :one
-SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, updated_at
+SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
 FROM workspace_docs
 WHERE id = @id AND workspace_id = @workspace_id;
 
@@ -135,7 +144,7 @@ WHERE m.workspace_doc_id = @workspace_doc_id AND d.workspace_id = @workspace_id
 ORDER BY c.name, r.sort_order, r.name;
 
 -- name: ListManualDocLinksForRequest :many
-SELECT m.id AS link_id, d.id, d.slug, d.title, d.content_md, d.source_path, d.is_local, d.linked_operation_ids, d.updated_at
+SELECT m.id AS link_id, d.id, d.slug, d.title, d.content_md, d.source_path, d.is_local, d.linked_operation_ids, d.linked_request_names, d.updated_at
 FROM manual_doc_links m
 JOIN workspace_docs d ON d.id = m.workspace_doc_id
 WHERE m.request_id = @request_id
