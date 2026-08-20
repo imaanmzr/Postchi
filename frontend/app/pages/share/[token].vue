@@ -158,6 +158,8 @@ const catalogCollections = computed((): CatalogCollection[] => {
       id: collection.id,
       name: collection.name,
       description: collection.description || '',
+      parent_id: collection.parent_id || null,
+      sort_order: typeof collection.sort_order === 'number' ? collection.sort_order : 0,
       request_count: catalogEndpoints.value.filter(ep => ep.collection_id === collection.id).length,
       documented_count: catalogEndpoints.value.filter(ep => ep.collection_id === collection.id && ep.docs_complete).length,
     }))

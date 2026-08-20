@@ -6,7 +6,10 @@
       :title="title"
       @click.stop="open = true"
     >
-      <slot>{{ label }}</slot>
+      <slot>
+        <Share2 :size="14" :stroke-width="2" aria-hidden="true" />
+        <span>{{ label }}</span>
+      </slot>
     </Button>
     <ShareDialog
       :open="open"
@@ -21,6 +24,8 @@
 </template>
 
 <script setup lang="ts">
+import { Share2 } from 'lucide-vue-next'
+
 withDefaults(defineProps<{
   workspaceId: string
   kind: 'request' | 'history' | 'catalog'
@@ -34,7 +39,7 @@ withDefaults(defineProps<{
 }>(), {
   label: 'Share',
   title: 'Share with teammates',
-  buttonClass: 'text-xs',
+  buttonClass: 'text-xs inline-flex items-center gap-1.5',
   variant: 'default',
 })
 

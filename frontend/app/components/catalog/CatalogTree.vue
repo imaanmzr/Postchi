@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import type { CatalogCollection, CatalogEndpoint } from '~/stores/catalog'
-import type { TreeNode } from '~/stores/collections'
+import type { Collection, TreeNode } from '~/stores/collections'
 
 const props = defineProps<{
   workspaceId: string
@@ -90,15 +90,35 @@ function toggleExpand(id: string) {
   }
 }
 
+const collectionById = computed(() => {
+  const map = new Map<string, Collection>()
+  for (const col of colStore.collections) {
+    map.set(col.id, col)
+  }
+  for (const col of props.collections) {
+    if (!map.has(col.id)) {
+      map.set(col.id, {
+        id: col.id,
+        workspace_id: props.workspaceId,
+        parent_id: col.parent_id ?? null,
+        name: col.name,
+        description: col.description,
+        sort_order: col.sort_order ?? 0,
+      })
+    }
+  }
+  return map
+})
+
 function expandAncestors(collectionId: string) {
   const next = { ...expandedIds.value }
   const visited = new Set<string>()
-  let cur = colStore.collections.find(c => c.id === collectionId)
+  let cur = collectionById.value.get(collectionId)
   while (cur && !visited.has(cur.id)) {
     visited.add(cur.id)
     next[cur.id] = true
     if (!cur.parent_id) break
-    cur = colStore.collections.find(c => c.id === cur!.parent_id)
+    cur = collectionById.value.get(cur.parent_id)
   }
   expandedIds.value = next
 }
@@ -113,7 +133,7 @@ onMounted(() => {
   if (Object.keys(expandedIds.value).length === 0 && props.endpoints.length > 0) {
     const next = { ...expandedIds.value }
     for (const ep of props.endpoints) {
-      let cur = colStore.collections.find(c => c.id === ep.collection_id)
+      let cur = collectionById.value.get(ep.collection_id)
       if (!cur && props.tree.some(node => node.id === ep.collection_id)) {
         next[ep.collection_id] = true
         continue
@@ -123,7 +143,7 @@ onMounted(() => {
         visited.add(cur.id)
         next[cur.id] = true
         if (!cur.parent_id) break
-        cur = colStore.collections.find(c => c.id === cur!.parent_id)
+        cur = collectionById.value.get(cur.parent_id)
       }
     }
     expandedIds.value = next

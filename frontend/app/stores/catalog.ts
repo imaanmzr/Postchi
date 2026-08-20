@@ -4,6 +4,8 @@ export interface CatalogCollection {
   id: string
   name: string
   description: string
+  parent_id?: string | null
+  sort_order?: number
   request_count: number
   documented_count: number
 }

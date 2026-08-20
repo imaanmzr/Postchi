@@ -257,4 +257,5 @@ function buildTree(collections: Collection[]): TreeNode[] {
   return roots
 }
 
+export { buildTree }
 export type { TreeNode }

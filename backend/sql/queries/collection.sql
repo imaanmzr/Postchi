@@ -115,7 +115,7 @@ FROM collections
 WHERE parent_id = @parent_id;
 
 -- name: ListCatalogCollections :many
-SELECT id, name, description
+SELECT id, name, description, parent_id, sort_order
 FROM collections
 WHERE workspace_id = @workspace_id
 ORDER BY sort_order, name;

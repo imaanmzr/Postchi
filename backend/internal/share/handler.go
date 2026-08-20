@@ -463,11 +463,16 @@ func (h *Handler) buildSnapshot(ctx context.Context, kind string, sourceID, wsID
 			for _, col := range collections {
 				id := db.FromPGUUID(col.ID).String()
 				collectionNames[id] = col.Name
-				snapshotCollections = append(snapshotCollections, map[string]any{
+				entry := map[string]any{
 					"id":          id,
 					"name":        col.Name,
 					"description": col.Description,
-				})
+					"sort_order":  col.SortOrder,
+				}
+				if col.ParentID.Valid {
+					entry["parent_id"] = db.FromPGUUID(col.ParentID).String()
+				}
+				snapshotCollections = append(snapshotCollections, entry)
 			}
 
 			rows, err := h.store.ListRequestsByWorkspace(ctx, db.PGUUID(wsID))

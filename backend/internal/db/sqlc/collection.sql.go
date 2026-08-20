@@ -297,7 +297,7 @@ func (q *Queries) GetCollectionWorkspaceID(ctx context.Context, id pgtype.UUID) 
 }
 
 const listCatalogCollections = `-- name: ListCatalogCollections :many
-SELECT id, name, description
+SELECT id, name, description, parent_id, sort_order
 FROM collections
 WHERE workspace_id = $1
 ORDER BY sort_order, name
@@ -307,6 +307,8 @@ type ListCatalogCollectionsRow struct {
 	ID          pgtype.UUID `json:"id"`
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
+	ParentID    pgtype.UUID `json:"parent_id"`
+	SortOrder   int32       `json:"sort_order"`
 }
 
 func (q *Queries) ListCatalogCollections(ctx context.Context, workspaceID pgtype.UUID) ([]ListCatalogCollectionsRow, error) {
@@ -318,7 +320,13 @@ func (q *Queries) ListCatalogCollections(ctx context.Context, workspaceID pgtype
 	items := []ListCatalogCollectionsRow{}
 	for rows.Next() {
 		var i ListCatalogCollectionsRow
-		if err := rows.Scan(&i.ID, &i.Name, &i.Description); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.ParentID,
+			&i.SortOrder,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

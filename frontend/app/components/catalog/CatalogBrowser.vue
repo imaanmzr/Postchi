@@ -63,7 +63,8 @@
 
 <script setup lang="ts">
 import type { CatalogCollection, CatalogEndpoint } from '~/stores/catalog'
-import type { RequestItem, TreeNode } from '~/stores/collections'
+import { buildTree } from '~/stores/collections'
+import type { Collection, RequestItem } from '~/stores/collections'
 import { copyToClipboard } from '~/utils/copyToClipboard'
 import { buildCatalogRequestUrl, buildWorkspaceRequestUrl } from '~/utils/docLinks'
 import { Link, SquarePen } from 'lucide-vue-next'
@@ -95,14 +96,17 @@ const collections = computed(() => {
   return catalogStore.data?.collections || []
 })
 
-const tree = computed((): TreeNode[] => {
+const tree = computed(() => {
   if (!props.snapshotCollections) return colStore.tree
-  return props.snapshotCollections.map((collection, index) => ({
-    ...collection,
+  const nodes: Collection[] = props.snapshotCollections.map((collection, index) => ({
+    id: collection.id,
     workspace_id: props.workspaceId,
-    sort_order: index,
-    children: [],
+    parent_id: collection.parent_id ?? null,
+    name: collection.name,
+    description: collection.description,
+    sort_order: collection.sort_order ?? index,
   }))
+  return buildTree(nodes)
 })
 
 const filteredEndpoints = computed(() => endpoints.value)
