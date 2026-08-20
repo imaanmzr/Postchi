@@ -42,7 +42,9 @@
 - **Real-time collaboration** over WebSocket when teammates edit the same workspace
 - **Email invites** with configurable TTL (Mailpit included for local dev)
 - **Share links** for read-only access or one-click import into another workspace
+- **Catalog share links** — publish read-only snapshots of the API catalog and linked documentation
 - **Activity feed** per workspace
+- **Nested collections** — folder hierarchy with drag-and-drop reordering
 
 ![Workspace settings with Git markdown docs sync and CI automation tokens](screenshots/scrsht-02.png)
 
@@ -82,6 +84,19 @@
 - Sync operations into collections with diff view (added, updated, removed)
 - Per-environment base URL mapping
 - Track source operation IDs for incremental updates
+- **CI spec push** — workspace API tokens with `spec:push` scope for pipelines (`POST /api/workspaces/:id/api-specs/push`)
+
+### Bruno & Git Collection Sync
+
+Keep Bruno collections in sync with your repository instead of one-off ZIP imports.
+
+- **Bruno Git sources** — connect GitHub or GitLab repos; sync `.bru` files into workspace collections on demand
+- **One-time Git import** — import a Bruno or OpenCollection tree from a repo URL without creating a persistent source
+- **Incremental sync** — added, updated, and removed requests tracked via content hashes
+- **Operation ID backfill** — assign canonical `method-/path` IDs to legacy Bruno imports for doc linking
+- Configurable branch, path prefix, and private-repo access tokens (same PAT scopes as doc sync)
+
+Configure sources under **Settings → API Sync → Sync Bruno collection from Git**.
 
 ### Documentation linking
 
@@ -93,10 +108,16 @@ Keep API knowledge next to the requests your team actually runs.
 - **Bidirectional linking** — attach doc pages from a request, or link requests from a doc page
 - **In-request preview** — compact linked-doc cards with a centered preview modal and **Open doc** shortcut
 - **API catalog** — browse all endpoints with documentation coverage and edit docs without opening the full builder
-- **Frontmatter operation links** — `operations:` in synced markdown auto-links pages to matching OpenAPI operations
+- **Frontmatter operation links** — `operations:` in synced markdown auto-links pages to matching OpenAPI/Bruno operations
+- **Frontmatter request links** — `request:` or `requests:` in markdown links pages to collection requests by name
+- **Deterministic auto-linking** on git doc sync:
+  - Exact name match (`get-user` request ↔ `get-user.md`)
+  - Configurable **path template** per doc source (e.g. `docs/{collection_slug}/{request_slug}.md`)
+  - Optional **API collection** scope on doc sources to avoid cross-collection collisions
+- **Smart suggestions** — tightened heuristics for ambiguous cases; accept/reject in the Suggestions panel
 - **Catalog share links** for read-only documentation snapshots
 
-See [docs/documentation-linking.md](docs/documentation-linking.md) for setup, frontmatter format, and API details.
+See [docs/documentation-linking.md](docs/documentation-linking.md) for setup, frontmatter format, path templates, and API details.
 
 ![Per-request documentation notes with linked doc pages](screenshots/scrsht-03.png)
 
@@ -109,9 +130,11 @@ See [docs/documentation-linking.md](docs/documentation-linking.md) for setup, fr
 | Format | Import | Export |
 |--------|:------:|:------:|
 | Postman Collection v2.1 | Yes | Yes |
-| Bruno | Yes | Yes |
+| Bruno (ZIP) | Yes | Yes |
+| Bruno (Git sync) | Yes | - |
 | OpenAPI 3 | Yes | - |
 | OpenCollection | Yes | - |
+| OpenCollection / Bruno (Git one-shot) | Yes | - |
 | cURL | Yes | - |
 
 ### UI & Theming
@@ -397,7 +420,7 @@ The backend can serve the built Nuxt static files when `STATIC_FILES_PATH` is se
 
 ## Import & Export
 
-Import endpoints accept multipart uploads or JSON payloads depending on format. All imports target a workspace and optionally a parent collection.
+Import endpoints accept multipart uploads, JSON payloads, or Git repository URLs depending on format. All imports target a workspace and optionally a parent collection.
 
 ```http
 POST /api/import/postman
@@ -405,6 +428,8 @@ POST /api/import/bruno
 POST /api/import/openapi
 POST /api/import/opencollection
 POST /api/import/curl
+POST /api/workspaces/:id/imports/bruno/git
+POST /api/workspaces/:id/imports/git
 
 GET  /api/export/postman?collection_id=<uuid>
 GET  /api/export/bruno?collection_id=<uuid>
@@ -474,16 +499,29 @@ GET    /api/workspaces/:id/shares
 GET    /api/workspaces/:id/catalog
 GET    /api/workspaces/:id/workspace-docs
 POST   /api/workspaces/:id/workspace-docs
+GET    /api/workspaces/:id/workspace-docs/{docId}/request-links
 GET    /api/workspaces/:id/workspace-docs/{docId}/links
 POST   /api/workspaces/:id/workspace-docs/{docId}/links
 DELETE /api/workspaces/:id/workspace-docs/{docId}/links/{linkId}
 GET    /api/workspaces/:id/workspace-docs/{slug}
 PATCH  /api/workspaces/:id/workspace-docs/{slug}
 GET    /api/workspaces/:id/doc-graph
+POST   /api/workspaces/:id/doc-links/analyze
+GET    /api/workspaces/:id/doc-links/suggestions
+POST   /api/workspaces/:id/doc-links/suggestions/accept-all
+POST   /api/workspaces/:id/doc-links/suggestions/{suggestionId}/accept
+POST   /api/workspaces/:id/doc-links/suggestions/{suggestionId}/reject
+POST   /api/workspaces/:id/requests/backfill-operation-ids
 GET    /api/workspaces/:id/doc-sources
 POST   /api/workspaces/:id/doc-sources
 PATCH  /api/workspaces/:id/doc-sources/{sourceId}
 DELETE /api/workspaces/:id/doc-sources/{sourceId}
+GET    /api/workspaces/:id/bruno-sources
+POST   /api/workspaces/:id/bruno-sources
+PATCH  /api/workspaces/:id/bruno-sources/{sourceId}
+DELETE /api/workspaces/:id/bruno-sources/{sourceId}
+POST   /api/workspaces/:id/imports/bruno/git
+POST   /api/workspaces/:id/imports/git
 GET    /api/workspaces/:id/api-tokens
 POST   /api/workspaces/:id/api-tokens
 DELETE /api/workspaces/:id/api-tokens/{tokenId}
@@ -549,6 +587,7 @@ POST   /api/api-specs/:id/sync
 POST   /api/api-specs/:id/reupload
 
 POST   /api/doc-sources/:id/sync
+POST   /api/bruno-sources/:id/sync
 
 POST   /api/shares
 DELETE /api/shares/:id
