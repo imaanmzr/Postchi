@@ -77,6 +77,7 @@ func (h *Handler) CreateBrunoSource(w http.ResponseWriter, r *http.Request) {
 		Name        string         `json:"name"`
 		Config      map[string]any `json:"config"`
 		AccessToken string         `json:"access_token"`
+		importParentRequest
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
 		respond.Error(w, http.StatusBadRequest, "name is required")
@@ -87,6 +88,12 @@ func (h *Handler) CreateBrunoSource(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	parentID, err := h.resolveImportParent(r.Context(), wsID, userID, req.importParentRequest)
+	if err != nil {
+		respond.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	setBrunoConfigParentID(normalized, parentID)
 	cfg, _ := json.Marshal(normalized)
 	tokenEnc, err := h.encryptToken(req.AccessToken)
 	if err != nil {
@@ -143,12 +150,13 @@ func (h *Handler) UpdateBrunoSource(w http.ResponseWriter, r *http.Request) {
 		Name        string         `json:"name"`
 		Config      map[string]any `json:"config"`
 		AccessToken string         `json:"access_token"`
+		importParentRequest
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	if req.Name == "" && req.Config == nil && strings.TrimSpace(req.AccessToken) == "" {
+	if req.Name == "" && req.Config == nil && strings.TrimSpace(req.AccessToken) == "" && req.ParentID == nil && req.CreateParent == nil {
 		respond.Error(w, http.StatusBadRequest, "nothing to update")
 		return
 	}
@@ -166,6 +174,34 @@ func (h *Handler) UpdateBrunoSource(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		cfg, _ := json.Marshal(normalized)
+		params.Config = cfg
+	}
+	if req.ParentID != nil || req.CreateParent != nil {
+		userID, err := auth.UserIDFromContext(r.Context())
+		if err != nil {
+			respond.Error(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		parentID, err := h.resolveImportParent(r.Context(), wsID, userID, req.importParentRequest)
+		if err != nil {
+			respond.Error(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		existingConfig := decodeBrunoConfig(params.Config)
+		if existingConfig == nil {
+			row, rowErr := h.store.GetBrunoSource(r.Context(), sqlc.GetBrunoSourceParams{
+				ID:          db.PGUUID(sourceID),
+				WorkspaceID: db.PGUUID(wsID),
+			})
+			if rowErr == nil {
+				existingConfig = decodeBrunoConfig(row.Config)
+			}
+		}
+		if existingConfig == nil {
+			existingConfig = map[string]any{}
+		}
+		setBrunoConfigParentID(existingConfig, parentID)
+		cfg, _ := json.Marshal(existingConfig)
 		params.Config = cfg
 	}
 	if tok := strings.TrimSpace(req.AccessToken); tok != "" {
@@ -285,6 +321,7 @@ func (h *Handler) syncBrunoSource(ctx context.Context, wsID, sourceID, userID uu
 		WorkspaceID: db.PGUUID(wsID),
 	})
 	config = normalized
+	parentID := parentIDFromBrunoConfig(config)
 
 	token := ""
 	if row.AccessTokenEncrypted != nil && strings.TrimSpace(*row.AccessTokenEncrypted) != "" {
@@ -347,7 +384,7 @@ func (h *Handler) syncBrunoSource(ctx context.Context, wsID, sourceID, userID uu
 	var colPaths, reqPaths []string
 	err = h.store.WithTx(ctx, func(q *sqlc.Queries) error {
 		for i, col := range parsed.Collections {
-			stats, rootID, err := h.applyBrunoTree(ctx, q, wsID, sourceID, userID, col, nil, existingCols, existingReqs)
+			stats, rootID, err := h.applyBrunoTree(ctx, q, wsID, sourceID, userID, col, parentID, existingCols, existingReqs)
 			if err != nil {
 				return err
 			}

@@ -134,6 +134,54 @@ func TestImportCollectionGitAlias(t *testing.T) {
 	}
 }
 
+func TestImportCollectionGitWithParent(t *testing.T) {
+	ctx := context.Background()
+	pool := requireIntegrationDB(t)
+	userID, wsID := testutil.SeedWorkspace(t, ctx, pool)
+	store := appdb.NewStore(pool)
+	h := NewHandler(store, nil)
+
+	parentID, err := h.createImportParentCollection(ctx, wsID, userID, "Import Target", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gitServer := newGitLabFileServer(t, map[string]string{
+		"collection.bru": "meta {\n  name: Nested API\n  type: collection\n}\n",
+		"ping.bru":       "meta {\n  name: Ping\n  type: http\n}\nget {\n  url: https://example.com/ping\n}\n",
+	})
+	defer gitServer.Close()
+
+	body := fmt.Sprintf(
+		`{"name":"Nested Import","repo_url":%q,"access_token":"gitlab-token","parent_id":%q}`,
+		gitServer.URL+"/group/repository",
+		parentID.String(),
+	)
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/workspaces/"+wsID.String()+"/imports/git", strings.NewReader(body))
+	routeContext := chi.NewRouteContext()
+	routeContext.URLParams.Add("id", wsID.String())
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, routeContext))
+	req = req.WithContext(context.WithValue(req.Context(), auth.UserIDKey, userID.String()))
+	h.ImportCollectionGit(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+	}
+	var imported ImportResult
+	_ = json.Unmarshal(rr.Body.Bytes(), &imported)
+	if imported.CollectionID == "" {
+		t.Fatal("missing collection id")
+	}
+	colUUID, _ := uuid.Parse(imported.CollectionID)
+	row, err := store.GetCollection(ctx, appdb.PGUUID(colUUID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !row.ParentID.Valid || appdb.FromPGUUID(row.ParentID) != *parentID {
+		t.Fatalf("imported collection parent = %v, want %v", row.ParentID, parentID)
+	}
+}
+
 func TestListBrunoSourcesInvalidWorkspace(t *testing.T) {
 	h := NewHandler(nil, nil)
 	rr := httptest.NewRecorder()

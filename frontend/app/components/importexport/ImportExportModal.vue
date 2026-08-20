@@ -57,6 +57,11 @@
                 GitHub private repositories need contents read access. GitLab requires read_api and read_repository access.
               </p>
             </div>
+            <ImportParentPicker
+              v-model="importParent"
+              :workspace-id="workspaceId"
+              :collections="colStore.collections"
+            />
           </template>
 
           <div v-if="progress" class="text-sm" style="color: var(--text-muted)">{{ progress }}</div>
@@ -101,6 +106,11 @@ import {
   type ImportFormat,
 } from '~/utils/importPlaceholders'
 import { extractPlaceholders } from '~/utils/placeholders'
+import {
+  importParentPayload,
+  isImportParentValid,
+  type ImportParentChoice,
+} from '~/utils/importParent'
 
 interface ImportResult {
   collection_id?: string
@@ -134,10 +144,14 @@ const gitForm = ref({
   path_prefix: '',
   access_token: '',
 })
+const importParent = ref<ImportParentChoice>({ mode: 'root' })
 
-const canImport = computed(() => importSource.value === 'file'
-  ? !!file.value
-  : !!gitForm.value.name.trim() && !!gitForm.value.repo_url.trim())
+const canImport = computed(() => {
+  if (importSource.value === 'file') return !!file.value
+  return !!gitForm.value.name.trim()
+    && !!gitForm.value.repo_url.trim()
+    && isImportParentValid(importParent.value)
+})
 
 const detectedGitProviderLabel = computed(() => detectedGitProvider(gitForm.value.repo_url))
 
@@ -237,6 +251,7 @@ async function runGitImport() {
       name: gitForm.value.name.trim(),
       ...gitRepoConfigPayload(gitForm.value),
       access_token: gitForm.value.access_token || undefined,
+      ...importParentPayload(importParent.value),
     })
     success.value = formatResult(result)
     gitForm.value.access_token = ''

@@ -22,6 +22,7 @@ type gitCollectionImportRequest struct {
 	Branch      string `json:"branch"`
 	PathPrefix  string `json:"path_prefix"`
 	AccessToken string `json:"access_token"`
+	importParentRequest
 }
 
 func (h *Handler) ImportCollectionGit(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +63,11 @@ func (h *Handler) importCollectionFromGit(w http.ResponseWriter, r *http.Request
 		respond.Error(w, http.StatusBadRequest, "name and repo_url are required")
 		return
 	}
+	parentID, err := h.resolveImportParent(r.Context(), workspaceID, userID, request.importParentRequest)
+	if err != nil {
+		respond.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), gitBrunoImportTimeout)
 	defer cancel()
@@ -98,7 +104,7 @@ func (h *Handler) importCollectionFromGit(w http.ResponseWriter, r *http.Request
 	result := ImportResult{Errors: parsed.Errors}
 	var firstColID uuid.UUID
 	for i, col := range parsed.Collections {
-		colID, partial, err := h.persistCollection(ctx, workspaceID, userID, col, nil)
+		colID, partial, err := h.persistCollection(ctx, workspaceID, userID, col, parentID)
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				respond.Error(w, http.StatusGatewayTimeout, "Git import timed out")

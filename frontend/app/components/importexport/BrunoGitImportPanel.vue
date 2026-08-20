@@ -28,6 +28,11 @@
         Bruno folders need a root <code>collection.bru</code> file. Postman, OpenCollection, and OpenAPI files are auto-detected.
         GitHub private repos need contents read access. GitLab needs <code>read_api</code> and <code>read_repository</code>.
       </p>
+      <ImportParentPicker
+        v-model="importParent"
+        :workspace-id="workspaceId"
+        :collections="colStore.collections"
+      />
       <Button variant="primary" :disabled="creating || !canCreate" @click="createSource">
         {{ creating ? 'Connecting and syncing…' : 'Add git source' }}
       </Button>
@@ -120,6 +125,11 @@ import {
   detectedGitProvider,
   gitRepoConfigPayload,
 } from '~/utils/gitRepoForm'
+import {
+  importParentPayload,
+  isImportParentValid,
+  type ImportParentChoice,
+} from '~/utils/importParent'
 
 interface BrunoSource {
   id: string
@@ -167,6 +177,7 @@ const form = ref({
   path_prefix: '',
   access_token: '',
 })
+const importParent = ref<ImportParentChoice>({ mode: 'root' })
 
 const editForm = ref({
   name: '',
@@ -177,7 +188,9 @@ const editForm = ref({
 })
 
 const provider = computed(() => detectedGitProvider(form.value.repo_url))
-const canCreate = computed(() => !!form.value.name.trim() && !!form.value.repo_url.trim())
+const canCreate = computed(() => !!form.value.name.trim()
+  && !!form.value.repo_url.trim()
+  && isImportParentValid(importParent.value))
 
 const deleteMessage = computed(() =>
   deleteTarget.value
@@ -188,7 +201,8 @@ const deleteMessage = computed(() =>
 watch(() => form.value.repo_url, () => applyGitLabBrowseUrlHints(form.value))
 watch(() => editForm.value.repo_url, () => applyGitLabBrowseUrlHints(editForm.value))
 
-onMounted(() => {
+onMounted(async () => {
+  await colStore.fetchCollections(props.workspaceId)
   loadSources()
 })
 
@@ -251,6 +265,7 @@ async function createSource() {
         name: form.value.name.trim(),
         config: payload,
         access_token: form.value.access_token || undefined,
+        ...importParentPayload(importParent.value),
       },
       { signal: controller.signal },
     )
