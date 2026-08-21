@@ -15,10 +15,12 @@ const props = defineProps<{
   content: string
   docSlugs?: string[]
   docTitles?: Record<string, string>
+  diagramTitles?: Record<string, string>
 }>()
 
 const emit = defineEmits<{
   navigate: [slug: string]
+  'navigate-diagram': [slug: string]
 }>()
 
 const slugSet = computed(() => new Set(props.docSlugs || []))
@@ -30,11 +32,27 @@ const titleMap = computed(() => {
   return map
 })
 
+const diagramTitleMap = computed(() => {
+  const map = new Map<string, string>()
+  for (const [slug, title] of Object.entries(props.diagramTitles || {})) {
+    map.set(slug, title)
+  }
+  return map
+})
+
 const html = computed(() => renderMarkdown(props.content || '', {
   resolveLink: target => resolveDocSlug(target, slugSet.value, titleMap.value) ?? target,
+  diagramTitles: diagramTitleMap.value,
 }))
 
 function onClick(e: MouseEvent) {
+  const diagramEl = (e.target as HTMLElement).closest('a.diagram-link') as HTMLAnchorElement | null
+  if (diagramEl) {
+    e.preventDefault()
+    const slug = diagramEl.dataset.diagramSlug
+    if (slug) emit('navigate-diagram', slug)
+    return
+  }
   const el = (e.target as HTMLElement).closest('a.wikilink') as HTMLAnchorElement | null
   if (!el) return
   e.preventDefault()
@@ -120,6 +138,40 @@ function onClick(e: MouseEvent) {
 }
 .markdown-viewer :deep(a.wikilink:hover) {
   border-bottom-style: solid;
+}
+.markdown-viewer :deep(a.diagram-link) {
+  display: inline-block;
+  text-decoration: none;
+  margin: 0.35em 0;
+}
+.markdown-viewer :deep(.diagram-link-card) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  min-width: 220px;
+}
+.markdown-viewer :deep(.diagram-link-icon) {
+  font-size: 1.1rem;
+  color: var(--color-accent);
+}
+.markdown-viewer :deep(.diagram-link-text) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  line-height: 1.3;
+}
+.markdown-viewer :deep(.diagram-link-sub) {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+.markdown-viewer :deep(a.diagram-link:hover .diagram-link-card) {
+  border-color: var(--color-accent);
 }
 .markdown-viewer :deep(hr) {
   border: none;

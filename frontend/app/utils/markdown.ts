@@ -11,15 +11,23 @@ function lineOf(text: string, raw: string): number {
   return text.slice(0, idx).split('\n').length
 }
 
+function preprocessDiagramLinks(text: string): string {
+  return text.replace(/\[\[diagram:([^\]|]+)(?:\|([^\]]+))?\]\]/gi, (_match, slug: string, label?: string) => {
+    const display = (label || slug).trim()
+    return `[${display}](diagramlink:${encodeURIComponent(slug.trim())})`
+  })
+}
+
 function preprocessWikilinks(text: string, resolveLink?: WikilinkResolver): string {
   return text.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, target: string, label?: string) => {
+    if (target.trim().toLowerCase().startsWith('diagram:')) return _match
     const display = (label || target).trim()
     const slug = resolveLink?.(target.trim()) ?? target.trim()
     return `[${display}](wikilink:${encodeURIComponent(slug)})`
   })
 }
 
-function createRenderer(source: string) {
+function createRenderer(source: string, diagramTitles?: Map<string, string>) {
   const renderer = new marked.Renderer()
   const baseLink = renderer.link.bind(renderer)
   const withLine = (tag: string, line: number, inner: string, attrs = '') =>
@@ -52,6 +60,12 @@ function createRenderer(source: string) {
     return withLine(tag, line, body) + '\n'
   }
   renderer.link = function link({ href, title, tokens }) {
+    if (href?.startsWith('diagramlink:')) {
+      const slug = decodeURIComponent(href.slice('diagramlink:'.length))
+      const text = this.parser.parseInline(tokens)
+      const diagramTitle = diagramTitles?.get(slug) || slug
+      return `<a href="#" class="diagram-link" data-diagram-slug="${slug}"><span class="diagram-link-card"><span class="diagram-link-icon" aria-hidden="true">◇</span><span class="diagram-link-text"><strong>${diagramTitle}</strong><span class="diagram-link-sub">User story diagram</span></span></span></a>`
+    }
     if (href?.startsWith('wikilink:')) {
       const slug = decodeURIComponent(href.slice('wikilink:'.length))
       const text = this.parser.parseInline(tokens)
@@ -62,13 +76,17 @@ function createRenderer(source: string) {
   return renderer
 }
 
-export function renderMarkdown(text: string, options?: { resolveLink?: WikilinkResolver }): string {
+export function renderMarkdown(
+  text: string,
+  options?: { resolveLink?: WikilinkResolver, diagramTitles?: Map<string, string> },
+): string {
   if (!text?.trim()) return ''
-  const processed = preprocessWikilinks(text, options?.resolveLink)
-  const html = marked.parse(processed, { renderer: createRenderer(text) }) as string
+  const withDiagrams = preprocessDiagramLinks(text)
+  const processed = preprocessWikilinks(withDiagrams, options?.resolveLink)
+  const html = marked.parse(processed, { renderer: createRenderer(text, options?.diagramTitles) }) as string
   if (import.meta.client) {
     return DOMPurify.sanitize(html, {
-      ADD_ATTR: ['data-doc-slug', 'data-line'],
+      ADD_ATTR: ['data-doc-slug', 'data-diagram-slug', 'data-line'],
     })
   }
   return html

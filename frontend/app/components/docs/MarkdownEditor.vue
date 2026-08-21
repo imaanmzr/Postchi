@@ -17,6 +17,7 @@ const model = defineModel<string>({ required: true })
 const props = defineProps<{
   placeholder?: string
   docCompletions?: { label: string, slug: string }[]
+  diagramCompletions?: { label: string, slug: string }[]
 }>()
 
 const emit = defineEmits<{
@@ -40,6 +41,7 @@ function createView(content: string) {
         ...createMarkdownExtensions({
           placeholder: props.placeholder,
           docCompletions: props.docCompletions,
+          diagramCompletions: props.diagramCompletions,
           onTogglePreview: () => emit('toggle-preview'),
           onForceSave: () => emit('force-save'),
         }),
@@ -87,5 +89,18 @@ defineExpose({
   editorView,
   setContent,
   focus: () => editorView.value?.focus(),
+  insertText(text: string) {
+    const view = editorView.value
+    if (!view) {
+      model.value = model.value ? `${model.value}\n${text}` : text
+      return
+    }
+    const pos = view.state.selection.main.head
+    view.dispatch({
+      changes: { from: pos, to: pos, insert: text },
+      selection: { anchor: pos + text.length },
+    })
+    model.value = view.state.doc.toString()
+  },
 })
 </script>

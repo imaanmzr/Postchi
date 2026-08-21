@@ -26,6 +26,7 @@ func SeedWorkspace(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (uuid.
 	wsID, err := store.CreateWorkspace(ctx, sqlc.CreateWorkspaceParams{
 		Name:        "Test Workspace",
 		Description: "",
+		Type:        sqlc.WorkspaceTypeDefault,
 		CreatedBy:   userID,
 	})
 	if err != nil {

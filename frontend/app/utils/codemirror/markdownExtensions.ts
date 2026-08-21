@@ -13,6 +13,7 @@ import { editorLineWrap, editorSyntax, editorTheme } from '~/utils/codemirror/ed
 export interface MarkdownEditorOptions {
   placeholder?: string
   docCompletions?: { label: string, slug: string }[]
+  diagramCompletions?: { label: string, slug: string }[]
   onTogglePreview?: () => void
   onForceSave?: () => void
 }
@@ -49,8 +50,24 @@ function wikilinkCompletion(context: CompletionContext, docs: { label: string, s
   return { from: before.from + 2, options }
 }
 
+function diagramWikilinkCompletion(context: CompletionContext, diagrams: { label: string, slug: string }[]) {
+  const before = context.matchBefore(/\[\[diagram:[^\]]*/)
+  if (!before || (before.from === before.to && !context.explicit)) return null
+  const query = before.text.slice('[[diagram:'.length).toLowerCase()
+  const options = diagrams
+    .filter(d => d.label.toLowerCase().includes(query) || d.slug.toLowerCase().includes(query))
+    .slice(0, 20)
+    .map(d => ({
+      label: d.label,
+      detail: `diagram:${d.slug}`,
+      apply: `[[diagram:${d.slug}|${d.label}]]`,
+    }))
+  return { from: before.from + '[[diagram:'.length, options }
+}
+
 export function createMarkdownExtensions(options: MarkdownEditorOptions = {}): Extension[] {
   const docList = options.docCompletions ?? []
+  const diagramList = options.diagramCompletions ?? []
 
   const obsidianKeymap = keymap.of([
     {
@@ -120,6 +137,7 @@ export function createMarkdownExtensions(options: MarkdownEditorOptions = {}): E
     autocompletion({
       override: [
         (ctx) => wikilinkCompletion(ctx, docList),
+        (ctx) => diagramWikilinkCompletion(ctx, diagramList),
       ],
     }),
     Prec.highest(obsidianKeymap),

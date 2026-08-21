@@ -47,6 +47,7 @@ import { ArrowLeft, BookOpen } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
+const wsStore = useWorkspaceStore()
 const workspaceId = computed(() => route.params.id as string)
 const selectedRequestId = ref(
   typeof route.query.request === 'string' ? route.query.request : '',
@@ -54,6 +55,13 @@ const selectedRequestId = ref(
 
 watch(() => route.query.request, (requestId) => {
   selectedRequestId.value = typeof requestId === 'string' ? requestId : ''
+})
+
+onMounted(async () => {
+  const ws = await wsStore.fetchWorkspace(workspaceId.value)
+  if (ws.type === 'pm') {
+    await router.replace(`/workspaces/${workspaceId.value}/diagrams`)
+  }
 })
 
 function onEndpointSelected(requestId: string) {

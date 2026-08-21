@@ -947,6 +947,26 @@ func (q *Queries) UpsertWorkspaceDoc(ctx context.Context, arg UpsertWorkspaceDoc
 	return err
 }
 
+const verifyRequestAccessibleToUser = `-- name: VerifyRequestAccessibleToUser :one
+SELECT r.id
+FROM requests r
+JOIN collections c ON c.id = r.collection_id
+JOIN workspace_members wm ON wm.workspace_id = c.workspace_id AND wm.user_id = $1
+WHERE r.id = $2
+`
+
+type VerifyRequestAccessibleToUserParams struct {
+	UserID    pgtype.UUID `json:"user_id"`
+	RequestID pgtype.UUID `json:"request_id"`
+}
+
+func (q *Queries) VerifyRequestAccessibleToUser(ctx context.Context, arg VerifyRequestAccessibleToUserParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, verifyRequestAccessibleToUser, arg.UserID, arg.RequestID)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const verifyRequestInWorkspace = `-- name: VerifyRequestInWorkspace :one
 SELECT r.id
 FROM requests r

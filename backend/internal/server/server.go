@@ -19,6 +19,7 @@ import (
 	"github.com/imaanmzr/postchi/backend/internal/collab"
 	"github.com/imaanmzr/postchi/backend/internal/collection"
 	"github.com/imaanmzr/postchi/backend/internal/db"
+	"github.com/imaanmzr/postchi/backend/internal/diagram"
 	"github.com/imaanmzr/postchi/backend/internal/docsync"
 	"github.com/imaanmzr/postchi/backend/internal/environment"
 	"github.com/imaanmzr/postchi/backend/internal/history"
@@ -30,6 +31,7 @@ import (
 	"github.com/imaanmzr/postchi/backend/internal/shared/config"
 	"github.com/imaanmzr/postchi/backend/internal/shared/crypto"
 	appMiddleware "github.com/imaanmzr/postchi/backend/internal/shared/middleware"
+	"github.com/imaanmzr/postchi/backend/internal/testcase"
 	"github.com/imaanmzr/postchi/backend/internal/workspace"
 	"github.com/imaanmzr/postchi/backend/internal/workspacetoken"
 )
@@ -58,6 +60,8 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 	apispecH := apispec.NewHandler(store, cfg)
 	catalogH := catalog.NewHandler(store)
 	docsyncH := docsync.NewHandler(store, cryptoSvc)
+	diagramH := diagram.NewHandler(store)
+	testcaseH := testcase.NewHandler(store)
 	wsTokenH := workspacetoken.NewHandler(store)
 	publicCfgH := publicconfig.NewHandler(cfg)
 	hub := collab.NewHub(log)
@@ -124,6 +128,20 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 				r.With(wsH.RequireRole("editor")).Delete("/workspace-docs/{docId}/links/{linkId}", docsyncH.DeleteDocLink)
 				r.With(wsH.RequireRole("viewer")).Get("/workspace-docs/{slug}", docsyncH.GetDoc)
 				r.With(wsH.RequireRole("editor")).Patch("/workspace-docs/{slug}", docsyncH.UpdateDoc)
+				r.With(wsH.RequireRole("viewer")).Get("/diagrams", diagramH.List)
+				r.With(wsH.RequireRole("editor")).Post("/diagrams", diagramH.Create)
+				r.With(wsH.RequireRole("viewer")).Get("/diagrams/{slug}", diagramH.Get)
+				r.With(wsH.RequireRole("editor")).Patch("/diagrams/{slug}", diagramH.Update)
+				r.With(wsH.RequireRole("editor")).Delete("/diagrams/{slug}", diagramH.Delete)
+				r.With(wsH.RequireRole("editor")).Post("/diagrams/{slug}/requests/{requestId}", diagramH.AddRequestLink)
+				r.With(wsH.RequireRole("editor")).Delete("/diagrams/{slug}/requests/{requestId}", diagramH.RemoveRequestLink)
+				r.With(wsH.RequireRole("viewer")).Get("/test-cases", testcaseH.List)
+				r.With(wsH.RequireRole("editor")).Post("/test-cases", testcaseH.Create)
+				r.With(wsH.RequireRole("viewer")).Get("/test-cases/{testCaseId}", testcaseH.Get)
+				r.With(wsH.RequireRole("editor")).Patch("/test-cases/{testCaseId}", testcaseH.Update)
+				r.With(wsH.RequireRole("editor")).Delete("/test-cases/{testCaseId}", testcaseH.Delete)
+				r.With(wsH.RequireRole("editor")).Post("/test-cases/{testCaseId}/requests/{requestId}", testcaseH.AddRequestLink)
+				r.With(wsH.RequireRole("editor")).Delete("/test-cases/{testCaseId}/requests/{requestId}", testcaseH.RemoveRequestLink)
 				r.With(wsH.RequireRole("viewer")).Get("/doc-graph", docsyncH.GetDocGraph)
 				r.With(wsH.RequireRole("editor")).Post("/doc-links/analyze", docsyncH.AnalyzeDocLinks)
 				r.With(wsH.RequireRole("viewer")).Get("/doc-links/suggestions", docsyncH.ListDocLinkSuggestions)

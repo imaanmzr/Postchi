@@ -164,3 +164,10 @@ SELECT r.id
 FROM requests r
 JOIN collections c ON c.id = r.collection_id
 WHERE r.id = @request_id AND c.workspace_id = @workspace_id;
+
+-- name: VerifyRequestAccessibleToUser :one
+SELECT r.id
+FROM requests r
+JOIN collections c ON c.id = r.collection_id
+JOIN workspace_members wm ON wm.workspace_id = c.workspace_id AND wm.user_id = @user_id
+WHERE r.id = @request_id;

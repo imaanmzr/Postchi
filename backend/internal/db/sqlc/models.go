@@ -97,6 +97,49 @@ func (ns NullWorkspaceRole) Value() (driver.Value, error) {
 	return string(ns.WorkspaceRole), nil
 }
 
+type WorkspaceType string
+
+const (
+	WorkspaceTypeDefault WorkspaceType = "default"
+	WorkspaceTypePm      WorkspaceType = "pm"
+	WorkspaceTypeTester  WorkspaceType = "tester"
+)
+
+func (e *WorkspaceType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = WorkspaceType(s)
+	case string:
+		*e = WorkspaceType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for WorkspaceType: %T", src)
+	}
+	return nil
+}
+
+type NullWorkspaceType struct {
+	WorkspaceType WorkspaceType `json:"workspace_type"`
+	Valid         bool          `json:"valid"` // Valid is true if WorkspaceType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullWorkspaceType) Scan(value interface{}) error {
+	if value == nil {
+		ns.WorkspaceType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.WorkspaceType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullWorkspaceType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.WorkspaceType), nil
+}
+
 type ActivityLog struct {
 	ID          pgtype.UUID        `json:"id"`
 	WorkspaceID pgtype.UUID        `json:"workspace_id"`
@@ -163,6 +206,11 @@ type Collection struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 	SourcePath         string             `json:"source_path"`
 	BrunoSourceID      pgtype.UUID        `json:"bruno_source_id"`
+}
+
+type DiagramRequestLink struct {
+	DiagramID pgtype.UUID `json:"diagram_id"`
+	RequestID pgtype.UUID `json:"request_id"`
 }
 
 type DocLinkSuggestion struct {
@@ -309,6 +357,22 @@ type Share struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type TestCase struct {
+	ID          pgtype.UUID        `json:"id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	Title       string             `json:"title"`
+	Description string             `json:"description"`
+	SortOrder   int32              `json:"sort_order"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TestCaseRequestLink struct {
+	TestCaseID pgtype.UUID `json:"test_case_id"`
+	RequestID  pgtype.UUID `json:"request_id"`
+}
+
 type User struct {
 	ID           pgtype.UUID        `json:"id"`
 	Email        string             `json:"email"`
@@ -323,6 +387,7 @@ type Workspace struct {
 	ID          pgtype.UUID        `json:"id"`
 	Name        string             `json:"name"`
 	Description string             `json:"description"`
+	Type        WorkspaceType      `json:"type"`
 	Variables   []byte             `json:"variables"`
 	CreatedBy   pgtype.UUID        `json:"created_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
@@ -339,6 +404,17 @@ type WorkspaceApiToken struct {
 	CreatedBy   pgtype.UUID        `json:"created_by"`
 	RevokedAt   pgtype.Timestamptz `json:"revoked_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type WorkspaceDiagram struct {
+	ID          pgtype.UUID        `json:"id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	Slug        string             `json:"slug"`
+	Title       string             `json:"title"`
+	Content     []byte             `json:"content"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type WorkspaceDoc struct {

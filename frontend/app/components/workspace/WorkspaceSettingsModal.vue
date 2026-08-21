@@ -44,6 +44,12 @@
         <template v-if="tab === 'general'">
           <ThemePicker class="mb-5 pb-5 border-b" style="border-color: var(--border)" />
 
+          <label class="text-sm block mb-1">Type</label>
+          <p class="text-sm mb-3 px-3 py-2 rounded border" style="border-color: var(--border); color: var(--text-secondary)">
+            {{ workspaceTypeLabel(wsStore.current?.type) }}
+            <span class="text-xs block mt-1 opacity-80">Workspace type cannot be changed after creation.</span>
+          </p>
+
           <label class="text-sm block mb-1">Name</label>
           <Input v-model="name" class="mb-3" />
           <p v-if="nameConflict" class="text-sm mb-3" style="color: var(--method-delete)">
@@ -200,6 +206,7 @@
 
 <script setup lang="ts">
 import { copyToClipboard } from '~/utils/copyToClipboard'
+import { workspaceTypeLabel } from '~/utils/workspaceType'
 
 const props = withDefaults(defineProps<{
   workspaceId: string

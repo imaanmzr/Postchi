@@ -31,6 +31,7 @@ type Workspace struct {
 	ID          string         `json:"id"`
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
+	Type        string         `json:"type"`
 	Variables   map[string]any `json:"variables,omitempty"`
 	Role        string         `json:"role,omitempty"`
 	CreatedAt   string         `json:"created_at"`
@@ -54,6 +55,19 @@ func fromPgUUID(id pgtype.UUID) uuid.UUID {
 	return uuid.UUID(id.Bytes)
 }
 
+func parseWorkspaceType(raw string) (sqlc.WorkspaceType, bool) {
+	switch strings.TrimSpace(strings.ToLower(raw)) {
+	case "", "default":
+		return sqlc.WorkspaceTypeDefault, true
+	case "pm":
+		return sqlc.WorkspaceTypePm, true
+	case "tester":
+		return sqlc.WorkspaceTypeTester, true
+	default:
+		return "", false
+	}
+}
+
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	userID, err := auth.UserIDFromContext(r.Context())
 	if err != nil {
@@ -72,6 +86,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		ws.ID = fromPgUUID(row.ID).String()
 		ws.Name = row.Name
 		ws.Description = row.Description
+		ws.Type = row.WType
 		ws.Role = row.WmRole
 		_ = json.Unmarshal(row.Variables, &ws.Variables)
 		list = append(list, ws)
@@ -88,6 +103,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
+		Type        string `json:"type"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
 		respond.Error(w, http.StatusBadRequest, "name required")
@@ -96,6 +112,11 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Description != "" {
 		req.Description = strings.TrimSpace(req.Description)
+	}
+	wsType, ok := parseWorkspaceType(req.Type)
+	if !ok {
+		respond.Error(w, http.StatusBadRequest, "invalid workspace type")
+		return
 	}
 
 	taken, err := h.store.UserHasWorkspaceNamed(r.Context(), sqlc.UserHasWorkspaceNamedParams{
@@ -117,6 +138,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		id, err := q.CreateWorkspace(r.Context(), sqlc.CreateWorkspaceParams{
 			Name:        req.Name,
 			Description: req.Description,
+			Type:        wsType,
 			CreatedBy:   pgUserID,
 		})
 		if err != nil {
@@ -129,17 +151,26 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		}); err != nil {
 			return err
 		}
-		return q.CreateDefaultCollection(r.Context(), sqlc.CreateDefaultCollectionParams{
-			WorkspaceID: id,
-			CreatedBy:   pgUserID,
-		})
+		if wsType == sqlc.WorkspaceTypeDefault || wsType == sqlc.WorkspaceTypeTester {
+			return q.CreateDefaultCollection(r.Context(), sqlc.CreateDefaultCollectionParams{
+				WorkspaceID: id,
+				CreatedBy:   pgUserID,
+			})
+		}
+		return nil
 	})
 	if err != nil {
 		respond.Error(w, http.StatusInternalServerError, "failed to create workspace")
 		return
 	}
 	_ = h.logActivity(r, wsID, userID, "create", "workspace", wsID, nil)
-	respond.JSON(w, http.StatusCreated, Workspace{ID: wsID.String(), Name: req.Name, Description: req.Description, Role: "owner"})
+	respond.JSON(w, http.StatusCreated, Workspace{
+		ID:          wsID.String(),
+		Name:        req.Name,
+		Description: req.Description,
+		Type:        string(wsType),
+		Role:        "owner",
+	})
 }
 
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
@@ -161,6 +192,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	ws.ID = fromPgUUID(row.ID).String()
 	ws.Name = row.Name
 	ws.Description = row.Description
+	ws.Type = row.Type
 	_ = json.Unmarshal(row.Variables, &ws.Variables)
 	if wsCtx, ok := auth.WorkspaceFromContext(r.Context()); ok {
 		ws.Role = wsCtx.Role

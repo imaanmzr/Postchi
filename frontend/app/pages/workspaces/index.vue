@@ -31,6 +31,24 @@
       style="border-color: var(--color-border); background: var(--color-surface-1)"
     >
       <form class="flex flex-col gap-3" @submit.prevent="create">
+        <div>
+          <p class="text-sm font-medium mb-2">Workspace type</p>
+          <div class="grid gap-2 sm:grid-cols-3">
+            <button
+              v-for="option in WORKSPACE_TYPES"
+              :key="option.id"
+              type="button"
+              class="text-left p-3 rounded-lg border transition"
+              :style="newType === option.id
+                ? { borderColor: 'var(--color-accent)', background: 'var(--color-surface-2)' }
+                : { borderColor: 'var(--color-border)' }"
+              @click="newType = option.id"
+            >
+              <div class="text-sm font-medium">{{ option.label }}</div>
+              <div class="text-xs mt-1 text-muted">{{ option.description }}</div>
+            </button>
+          </div>
+        </div>
         <Input v-model="newName" placeholder="Workspace name" required />
         <Input v-model="newDescription" placeholder="Description (optional)" />
         <p v-if="nameConflict" class="text-sm" style="color: var(--method-delete)">
@@ -54,7 +72,13 @@
         class="block p-4 rounded-lg border transition hover:border-accent card-link"
         style="border-color: var(--color-border); background: var(--color-surface-1)"
       >
-        <div class="font-medium tracking-tight">{{ ws.name }}</div>
+        <div class="flex items-center gap-2">
+          <div class="font-medium tracking-tight">{{ ws.name }}</div>
+          <span
+            class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded border shrink-0"
+            style="border-color: var(--color-border); color: var(--color-text-muted)"
+          >{{ workspaceTypeLabel(ws.type) }}</span>
+        </div>
         <div v-if="ws.description" class="text-sm mt-1 text-muted">{{ ws.description }}</div>
         <div class="text-xs mt-2 text-muted font-mono">{{ ws.role }}</div>
       </NuxtLink>
@@ -69,6 +93,7 @@
 
 <script setup lang="ts">
 import { healthUrl } from '~/utils/apiBase'
+import { WORKSPACE_TYPES, workspaceTypeLabel, type WorkspaceType } from '~/utils/workspaceType'
 
 const auth = useAuthStore()
 const wsStore = useWorkspaceStore()
@@ -79,6 +104,7 @@ const showCreate = ref(false)
 const showAccount = ref(false)
 const newName = ref('')
 const newDescription = ref('')
+const newType = ref<WorkspaceType>('default')
 const creating = ref(false)
 const createError = ref('')
 const loadError = ref('')
@@ -113,6 +139,7 @@ onMounted(async () => {
 function closeCreate() {
   showCreate.value = false
   createError.value = ''
+  newType.value = 'default'
 }
 
 async function create() {
@@ -121,9 +148,10 @@ async function create() {
   creating.value = true
   createError.value = ''
   try {
-    const ws = await wsStore.create(name, newDescription.value.trim())
+    const ws = await wsStore.create(name, newDescription.value.trim(), newType.value)
     newName.value = ''
     newDescription.value = ''
+    newType.value = 'default'
     showCreate.value = false
     await router.push(`/workspaces/${ws.id}`)
   } catch (err: unknown) {

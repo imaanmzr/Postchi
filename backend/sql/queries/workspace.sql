@@ -1,13 +1,13 @@
 -- name: ListWorkspacesByUser :many
-SELECT w.id, w.name, w.description, w.variables, wm.role::text, w.created_at
+SELECT w.id, w.name, w.description, w.type::text, w.variables, wm.role::text, w.created_at
 FROM workspaces w
 JOIN workspace_members wm ON wm.workspace_id = w.id
 WHERE wm.user_id = @user_id
 ORDER BY w.created_at DESC;
 
 -- name: CreateWorkspace :one
-INSERT INTO workspaces (name, description, created_by)
-VALUES (@name, @description, @created_by)
+INSERT INTO workspaces (name, description, type, created_by)
+VALUES (@name, @description, @type::workspace_type, @created_by)
 RETURNING id;
 
 -- name: UserHasWorkspaceNamed :one
@@ -38,7 +38,7 @@ INSERT INTO collections (workspace_id, name, created_by)
 VALUES (@workspace_id, 'My Collection', @created_by);
 
 -- name: GetWorkspaceByID :one
-SELECT id, name, description, variables
+SELECT id, name, description, type::text, variables
 FROM workspaces
 WHERE id = @id;
 

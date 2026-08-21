@@ -81,19 +81,25 @@ func (q *Queries) CreateDefaultCollection(ctx context.Context, arg CreateDefault
 }
 
 const createWorkspace = `-- name: CreateWorkspace :one
-INSERT INTO workspaces (name, description, created_by)
-VALUES ($1, $2, $3)
+INSERT INTO workspaces (name, description, type, created_by)
+VALUES ($1, $2, $3::workspace_type, $4)
 RETURNING id
 `
 
 type CreateWorkspaceParams struct {
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	CreatedBy   pgtype.UUID `json:"created_by"`
+	Name        string        `json:"name"`
+	Description string        `json:"description"`
+	Type        WorkspaceType `json:"type"`
+	CreatedBy   pgtype.UUID   `json:"created_by"`
 }
 
 func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (pgtype.UUID, error) {
-	row := q.db.QueryRow(ctx, createWorkspace, arg.Name, arg.Description, arg.CreatedBy)
+	row := q.db.QueryRow(ctx, createWorkspace,
+		arg.Name,
+		arg.Description,
+		arg.Type,
+		arg.CreatedBy,
+	)
 	var id pgtype.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -138,7 +144,7 @@ func (q *Queries) GetUserIDByEmail(ctx context.Context, email string) (pgtype.UU
 }
 
 const getWorkspaceByID = `-- name: GetWorkspaceByID :one
-SELECT id, name, description, variables
+SELECT id, name, description, type::text, variables
 FROM workspaces
 WHERE id = $1
 `
@@ -147,6 +153,7 @@ type GetWorkspaceByIDRow struct {
 	ID          pgtype.UUID `json:"id"`
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
+	Type        string      `json:"type"`
 	Variables   []byte      `json:"variables"`
 }
 
@@ -157,6 +164,7 @@ func (q *Queries) GetWorkspaceByID(ctx context.Context, id pgtype.UUID) (GetWork
 		&i.ID,
 		&i.Name,
 		&i.Description,
+		&i.Type,
 		&i.Variables,
 	)
 	return i, err
@@ -262,7 +270,7 @@ func (q *Queries) ListWorkspaceMembers(ctx context.Context, workspaceID pgtype.U
 }
 
 const listWorkspacesByUser = `-- name: ListWorkspacesByUser :many
-SELECT w.id, w.name, w.description, w.variables, wm.role::text, w.created_at
+SELECT w.id, w.name, w.description, w.type::text, w.variables, wm.role::text, w.created_at
 FROM workspaces w
 JOIN workspace_members wm ON wm.workspace_id = w.id
 WHERE wm.user_id = $1
@@ -273,6 +281,7 @@ type ListWorkspacesByUserRow struct {
 	ID          pgtype.UUID        `json:"id"`
 	Name        string             `json:"name"`
 	Description string             `json:"description"`
+	WType       string             `json:"w_type"`
 	Variables   []byte             `json:"variables"`
 	WmRole      string             `json:"wm_role"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
@@ -291,6 +300,7 @@ func (q *Queries) ListWorkspacesByUser(ctx context.Context, userID pgtype.UUID) 
 			&i.ID,
 			&i.Name,
 			&i.Description,
+			&i.WType,
 			&i.Variables,
 			&i.WmRole,
 			&i.CreatedAt,

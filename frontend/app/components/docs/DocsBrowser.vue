@@ -4,17 +4,28 @@
       class="flex items-center gap-3 px-4 h-12 shrink-0 border-b"
       style="background: var(--color-surface-1); border-color: var(--color-border)"
     >
-      <NuxtLink
-        :to="`/workspaces/${workspaceId}`"
-        class="inline-flex items-center gap-1.5 text-xs text-muted hover:text-default transition"
-      >
-        <ArrowLeft :size="14" />
-        <span>Workspace</span>
-      </NuxtLink>
-      <div class="h-4 w-px" style="background: var(--color-border)" />
-      <h1 class="font-semibold text-sm">Documentation</h1>
+      <template v-if="!embedded">
+        <NuxtLink
+          :to="`/workspaces/${workspaceId}`"
+          class="inline-flex items-center gap-1.5 text-xs text-muted hover:text-default transition"
+        >
+          <ArrowLeft :size="14" />
+          <span>Workspace</span>
+        </NuxtLink>
+        <div class="h-4 w-px" style="background: var(--color-border)" />
+      </template>
+      <h1 class="font-semibold text-sm">{{ embedded ? 'Docs' : 'Documentation' }}</h1>
       <div class="flex-1" />
+      <template v-if="isPmWorkspace">
+        <Button class="text-xs shrink-0" @click="openDiagramPicker">
+          Link story
+        </Button>
+        <Button class="text-xs shrink-0" @click="onCreateLocal('docs')">
+          New doc
+        </Button>
+      </template>
       <button
+        v-if="!embedded && !isPmWorkspace"
         type="button"
         class="text-xs px-2.5 py-1 rounded border transition hover:bg-surface-2 inline-flex items-center gap-1.5"
         style="border-color: var(--color-border); color: var(--color-text-muted)"
@@ -116,6 +127,9 @@
                 :readonly="viewMode === 'preview'"
                 @input="onEditInput"
               />
+              <p v-if="isPmWorkspace" class="text-[11px] text-muted shrink-0 hidden lg:block">
+                Type <code class="font-mono">[[diagram:</code> to link a story
+              </p>
               <div class="flex items-center gap-1.5 text-xs shrink-0" :class="saveStatusClass">
                 <span class="w-1.5 h-1.5 rounded-full" :class="saveDotClass" />
                 {{ saveStatusLabel }}
@@ -137,6 +151,7 @@
                     ref="editorRef"
                     v-model="editContent"
                     :doc-completions="docCompletions"
+                    :diagram-completions="diagramCompletions"
                     class="flex-1 min-h-0"
                     @toggle-preview="togglePreview"
                     @force-save="forceSave"
@@ -153,7 +168,9 @@
                     :content="previewContent"
                     :doc-slugs="docsStore.docSlugs"
                     :doc-titles="docsStore.docTitles"
+                    :diagram-titles="diagramTitles"
                     @navigate="selectDoc"
+                    @navigate-diagram="onNavigateDiagram"
                   />
                 </div>
               </div>
@@ -164,7 +181,7 @@
                 @select="selectDoc"
               />
               <DocRequestLinks
-                v-if="activeDoc?.id"
+                v-if="!isPmWorkspace && activeDoc?.id"
                 :workspace-id="workspaceId"
                 :doc-id="activeDoc.id"
               />
@@ -172,7 +189,12 @@
           </template>
 
           <div v-else class="flex-1 flex items-center justify-center text-sm text-muted">
-            Select a document from the sidebar.
+            <div v-if="isPmWorkspace && !docsStore.summaries.length" class="text-center px-6">
+              <p class="font-medium mb-1">Write your first doc</p>
+              <p class="text-xs mb-3">Create a local page and link user story diagrams inline.</p>
+              <Button variant="primary" class="text-xs" @click="onCreateLocal('docs')">Create doc</Button>
+            </div>
+            <span v-else>Select a document from the sidebar.</span>
           </div>
         </template>
       </main>
@@ -190,6 +212,14 @@
       :workspace-id="workspaceId"
       @close="suggestionsOpen = false"
     />
+    <LazyDiagramInsertPanel
+      v-if="isPmWorkspace"
+      :open="diagramPickerOpen"
+      :workspace-id="workspaceId"
+      :diagrams="diagramsStore.summaries"
+      @insert="insertDiagramLink"
+      @close="diagramPickerOpen = false"
+    />
   </div>
 </template>
 
@@ -204,11 +234,17 @@ type ViewMode = 'edit' | 'preview' | 'split' | 'graph'
 const props = defineProps<{
   workspaceId: string
   initialSlug?: string | null
+  workspaceType?: string
+  embedded?: boolean
 }>()
 
 const docsStore = useDocsStore()
+const diagramsStore = useDiagramsStore()
+const toast = useToast()
 const route = useRoute()
 const router = useRouter()
+
+const isPmWorkspace = computed(() => props.workspaceType === 'pm')
 
 const viewModes: { id: ViewMode, label: string }[] = [
   { id: 'edit', label: 'Edit' },
@@ -227,6 +263,7 @@ const savedTitle = ref('')
 const savedContent = ref('')
 const paletteOpen = ref(false)
 const suggestionsOpen = ref(false)
+const diagramPickerOpen = ref(false)
 const treeRef = ref<{ revealPath: (path: string) => void } | null>(null)
 const editorRef = ref<InstanceType<typeof MarkdownEditor> | null>(null)
 const previewEl = ref<HTMLElement | null>(null)
@@ -279,9 +316,21 @@ const previewContent = computed(() => {
   return editContent.value
 })
 
+const diagramTitles = computed(() => {
+  if (!isPmWorkspace.value) return {}
+  const map: Record<string, string> = {}
+  for (const d of diagramsStore.summaries) map[d.slug] = d.title
+  return map
+})
+
 const docCompletions = computed(() =>
   docsStore.summaries.map(d => ({ label: d.title, slug: d.slug })),
 )
+
+const diagramCompletions = computed(() => {
+  if (!isPmWorkspace.value) return []
+  return diagramsStore.summaries.map(d => ({ label: d.title, slug: d.slug }))
+})
 
 const scrollSyncEnabled = computed(() => viewMode.value === 'split')
 
@@ -441,6 +490,35 @@ async function onCreateLocal(folderPath: string) {
   }
 }
 
+async function openDiagramPicker() {
+  if (!diagramsStore.summaries.length) {
+    await diagramsStore.fetchDiagrams(props.workspaceId)
+  }
+  diagramPickerOpen.value = true
+}
+
+function insertDiagramLink(diagram: { slug: string, title: string }) {
+  diagramPickerOpen.value = false
+  const link = `[[diagram:${diagram.slug}|${diagram.title}]]`
+  const snippet = `\n${link}\n`
+  if (editorRef.value?.insertText) {
+    editorRef.value.insertText(snippet)
+  } else {
+    editContent.value = editContent.value ? `${editContent.value}${snippet}` : snippet
+  }
+  onContentInput()
+  toast.show(`Linked “${diagram.title}” — save the doc to keep it`)
+}
+
+function openDiagram(slug: string) {
+  void navigateTo(`/workspaces/${props.workspaceId}/diagrams/${encodeURIComponent(slug)}`)
+}
+
+function onNavigateDiagram(slug: string) {
+  if (!isPmWorkspace.value) return
+  openDiagram(slug)
+}
+
 function onKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
     e.preventDefault()
@@ -464,8 +542,12 @@ onMounted(async () => {
   try {
     await docsStore.fetchWorkspace(props.workspaceId)
     workspaceReady.value = true
-    void docsStore.fetchGraph(props.workspaceId)
-    void docsStore.fetchSuggestions(props.workspaceId, 'pending').catch(() => {})
+    if (isPmWorkspace.value) {
+      void diagramsStore.fetchDiagrams(props.workspaceId).catch(() => {})
+    }
+    if (!isPmWorkspace.value) {
+      void docsStore.fetchSuggestions(props.workspaceId, 'pending').catch(() => {})
+    }
     if (activeSlug.value) {
       await openDoc(activeSlug.value)
     } else if (docsStore.summaries[0]) {

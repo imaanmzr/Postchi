@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia'
+import type { WorkspaceType } from '~/utils/workspaceType'
 
 export interface Workspace {
   id: string
   name: string
   description?: string
+  type?: WorkspaceType
   role?: string
   variables?: Record<string, unknown>
 }
@@ -48,9 +50,9 @@ export const useWorkspaceStore = defineStore('workspace', {
       this.current = ws
       return ws
     },
-    async create(name: string, description = '') {
+    async create(name: string, description = '', type: WorkspaceType = 'default') {
       const api = useApi()
-      const ws = await api.post<Workspace>('/api/workspaces', { name, description })
+      const ws = await api.post<Workspace>('/api/workspaces', { name, description, type })
       this.workspaces.unshift(ws)
       return ws
     },
