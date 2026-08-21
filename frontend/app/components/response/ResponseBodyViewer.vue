@@ -30,12 +30,12 @@
     <JsonTreeViewer
       v-if="parsedJson !== null && viewMode === 'Tree'"
       :data="parsedJson"
-      class="flex-1 min-h-0"
+      class="flex-1 min-h-0 min-w-0 w-full"
     />
     <div
       v-show="parsedJson === null || viewMode === 'Raw'"
       ref="viewerEl"
-      class="flex-1 min-h-0 w-full overflow-hidden ui-input-editor"
+      class="viewer-host flex-1 min-h-0 min-w-0 w-full overflow-hidden ui-input-editor"
       style="background: var(--color-editor-bg)"
     />
   </div>
@@ -47,7 +47,7 @@ import { EditorState } from '@codemirror/state'
 import { json } from '@codemirror/lang-json'
 import { xml } from '@codemirror/lang-xml'
 import type { Extension } from '@codemirror/state'
-import { editorTheme, editorLineWrap, editorSyntax } from '~/utils/codemirror/editorTheme'
+import { editorTheme, editorFillLayout, editorLineWrap, editorSyntax } from '~/utils/codemirror/editorTheme'
 import { detectResponseBodyLang, formatResponseBody } from '~/utils/formatResponseBody'
 import { parseResponseJson } from '~/utils/parseResponseJson'
 import { copyToClipboard } from '~/utils/copyToClipboard'
@@ -65,6 +65,7 @@ const viewMode = ref<BodyMode>('Tree')
 const copiedAll = ref(false)
 let view: EditorView | null = null
 let copiedAllTimer: ReturnType<typeof setTimeout> | null = null
+let resizeObserver: ResizeObserver | null = null
 
 const displayBody = computed(() => formatResponseBody(props.body))
 const lang = computed(() => detectResponseBodyLang(props.body, props.headers))
@@ -72,21 +73,23 @@ const parsedJson = computed(() => parseResponseJson(props.body))
 
 const viewerLayout = EditorView.theme({
   '&': {
-    height: '100%',
-    width: '100%',
     minHeight: '0',
-  },
-  '.cm-scroller': {
-    overflow: 'auto',
-    fontFamily: 'var(--font-editor) !important',
-    fontSize: 'var(--font-editor-size)',
-    lineHeight: 'var(--font-editor-line-height)',
-    fontVariantLigatures: 'none',
   },
   '.cm-content': {
     padding: '0.75rem 0',
   },
 }, { dark: true })
+
+function measureView() {
+  if (view) view.requestMeasure()
+}
+
+function bindResizeObserver() {
+  resizeObserver?.disconnect()
+  if (!viewerEl.value) return
+  resizeObserver = new ResizeObserver(() => measureView())
+  resizeObserver.observe(viewerEl.value)
+}
 
 function langExt(language: string): Extension {
   if (language === 'json') return json()
@@ -109,10 +112,12 @@ function createView() {
         langExt(lang.value),
         editorTheme,
         editorSyntax,
+        editorFillLayout,
         viewerLayout,
       ],
     }),
   })
+  nextTick(measureView)
 }
 
 function updateDoc() {
@@ -138,13 +143,20 @@ watch(parsedJson, (value) => {
   viewMode.value = value === null ? 'Raw' : 'Tree'
 })
 
-onMounted(createView)
+onMounted(() => {
+  createView()
+  bindResizeObserver()
+})
 watch(lang, createView)
 watch(displayBody, updateDoc)
 watch(viewMode, (mode) => {
-  if (mode === 'Raw') nextTick(createView)
+  if (mode === 'Raw') nextTick(() => {
+    createView()
+    bindResizeObserver()
+  })
 })
 onUnmounted(() => {
+  resizeObserver?.disconnect()
   view?.destroy()
   if (copiedAllTimer) clearTimeout(copiedAllTimer)
 })
@@ -168,5 +180,10 @@ onUnmounted(() => {
 .copy-success {
   background: var(--method-get);
   color: var(--color-bg);
+}
+.viewer-host :deep(.cm-editor) {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 </style>

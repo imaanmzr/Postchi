@@ -59,11 +59,27 @@ Public config (no auth): `GET /api/config/public`
 }
 ```
 
+## Change password
+
+Registered users with local accounts can change their password from **Account** on the workspaces list or workspace toolbar.
+
+API: `POST /api/auth/change-password` (authenticated)
+
+```json
+{
+  "current_password": "existing-secret",
+  "new_password": "new-secret"
+}
+```
+
+On success, other refresh sessions are revoked and a new token pair is returned so the current browser session stays signed in.
+
 ## API summary
 
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/config/public` | SMTP and registration domain flags |
+| `POST /api/auth/change-password` | Change password (local accounts) |
 | `POST /api/workspaces/:id/invites` | Add registered user or create invite (`send_email` optional) |
 | `GET /api/workspaces/:id/invites` | List pending invites (includes `invite_url`) |
 | `DELETE /api/workspaces/:id/invites/:inviteId` | Revoke invite |

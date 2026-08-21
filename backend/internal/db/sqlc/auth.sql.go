@@ -56,6 +56,16 @@ func (q *Queries) DeleteRefreshTokenByHash(ctx context.Context, tokenHash string
 	return err
 }
 
+const deleteRefreshTokensByUserID = `-- name: DeleteRefreshTokensByUserID :exec
+DELETE FROM refresh_tokens
+WHERE user_id = $1
+`
+
+func (q *Queries) DeleteRefreshTokensByUserID(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteRefreshTokensByUserID, userID)
+	return err
+}
+
 const getRefreshTokenWithUser = `-- name: GetRefreshTokenWithUser :one
 SELECT rt.user_id, u.email, rt.expires_at
 FROM refresh_tokens rt
@@ -73,6 +83,24 @@ func (q *Queries) GetRefreshTokenWithUser(ctx context.Context, tokenHash string)
 	row := q.db.QueryRow(ctx, getRefreshTokenWithUser, tokenHash)
 	var i GetRefreshTokenWithUserRow
 	err := row.Scan(&i.UserID, &i.Email, &i.ExpiresAt)
+	return i, err
+}
+
+const getUserAuthByID = `-- name: GetUserAuthByID :one
+SELECT password_hash, auth_provider
+FROM users
+WHERE id = $1
+`
+
+type GetUserAuthByIDRow struct {
+	PasswordHash string `json:"password_hash"`
+	AuthProvider string `json:"auth_provider"`
+}
+
+func (q *Queries) GetUserAuthByID(ctx context.Context, id pgtype.UUID) (GetUserAuthByIDRow, error) {
+	row := q.db.QueryRow(ctx, getUserAuthByID, id)
+	var i GetUserAuthByIDRow
+	err := row.Scan(&i.PasswordHash, &i.AuthProvider)
 	return i, err
 }
 
@@ -129,6 +157,22 @@ func (q *Queries) GetWorkspaceMemberRole(ctx context.Context, arg GetWorkspaceMe
 	var role string
 	err := row.Scan(&role)
 	return role, err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE users
+SET password_hash = $1, updated_at = now()
+WHERE id = $2
+`
+
+type UpdateUserPasswordParams struct {
+	PasswordHash string      `json:"password_hash"`
+	ID           pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.Exec(ctx, updateUserPassword, arg.PasswordHash, arg.ID)
+	return err
 }
 
 const userExistsByEmail = `-- name: UserExistsByEmail :one

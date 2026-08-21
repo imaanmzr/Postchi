@@ -1,7 +1,8 @@
 <template>
   <div
-    class="flex shrink-0 min-h-0 overflow-hidden"
+    class="flex shrink-0 min-h-0 min-w-0 overflow-hidden"
     :class="position === 'right' ? 'flex-col h-full border-l' : 'flex-col w-full border-t'"
+    :style="rootStyle"
     style="border-color: var(--color-border); background: var(--color-surface-1)"
   >
     <!-- Compact strip when right + collapsed -->
@@ -38,6 +39,10 @@
 
     <template v-else>
       <div
+        class="flex flex-col flex-1 min-h-0 min-w-0 w-full overflow-hidden"
+        :style="bodyStyle"
+      >
+      <div
         class="flex items-center gap-1 px-2 h-9 shrink-0 border-b"
         style="border-color: var(--color-border); background: var(--color-bg)"
       >
@@ -72,9 +77,8 @@
       </div>
 
       <div
-        class="dock-body relative overflow-hidden shrink-0"
-        :class="position === 'bottom' ? 'w-full' : 'h-full'"
-        :style="bodyStyle"
+        class="dock-body relative overflow-hidden flex-1 min-h-0 min-w-0 w-full"
+        :class="{ 'dock-body-resizing': isResizing }"
       >
         <template v-if="!collapsed">
           <div
@@ -88,14 +92,12 @@
             @mousedown="startResize"
           />
 
-          <div
-            class="h-full min-h-0 overflow-hidden w-full"
-            :style="position === 'right' ? { width: `${size}px` } : { height: `${size}px` }"
-          >
+          <div class="h-full min-h-0 min-w-0 w-full overflow-hidden">
             <Transition name="dock-tab-fade" mode="out-in">
-              <div v-if="activeTab === 'response'" key="response" class="h-full">
+              <div v-if="activeTab === 'response'" key="response" class="h-full min-h-0 min-w-0 w-full">
                 <ResponseViewer
                   v-if="response"
+                  class="h-full w-full"
                   :response="response"
                   :workspace-id="workspaceId"
                   :share-kind="shareKind"
@@ -106,7 +108,7 @@
                   Send a request to see the response
                 </div>
               </div>
-              <div v-else-if="activeTab === 'history'" key="history" class="h-full overflow-y-auto p-3">
+              <div v-else-if="activeTab === 'history'" key="history" class="h-full min-h-0 min-w-0 overflow-y-auto p-3">
                 <p v-if="!history.length" class="text-xs text-muted">No requests executed yet.</p>
                 <div
                   v-for="h in history"
@@ -140,12 +142,13 @@
                   </div>
                 </div>
               </div>
-              <div v-else key="runner" class="h-full overflow-y-auto p-3">
+              <div v-else key="runner" class="h-full min-h-0 min-w-0 overflow-y-auto p-3">
                 <CollectionRunner :collection-id="collectionId" :workspace-id="workspaceId" />
               </div>
             </Transition>
           </div>
         </template>
+      </div>
       </div>
     </template>
   </div>
@@ -181,6 +184,8 @@ const emit = defineEmits<{
   'select-history': [entry: HistoryEntry]
 }>()
 
+const isResizing = ref(false)
+
 const dockTabs = computed(() => [
   { id: 'response' as const, label: 'Response', short: 'R' },
   { id: 'history' as const, label: 'History', short: 'H', badge: props.history.length || undefined },
@@ -197,12 +202,17 @@ const collapseIcon = computed(() => {
 const bodyStyle = computed(() => {
   if (props.collapsed) {
     return props.position === 'bottom'
-      ? { width: '100%', height: '0px' }
-      : { width: '0px', height: '100%' }
+      ? { width: '100%', height: '0px', flex: '0 0 auto' }
+      : { width: '0px', height: '100%', flex: '0 0 auto' }
   }
   return props.position === 'bottom'
-    ? { width: '100%', height: `${props.size}px` }
-    : { width: `${props.size}px`, height: '100%' }
+    ? { width: '100%', height: `${props.size}px`, flex: '0 0 auto' }
+    : { width: '100%', height: '100%', flex: '1 1 auto' }
+})
+
+const rootStyle = computed(() => {
+  if (props.position !== 'right' || props.collapsed) return undefined
+  return { width: `${props.size}px` }
 })
 
 function setTab(tab: 'response' | 'history' | 'runner') {
@@ -245,6 +255,7 @@ function clamp(next: number) {
 
 function startResize(e: MouseEvent) {
   e.preventDefault()
+  isResizing.value = true
   const start = props.position === 'bottom' ? e.clientY : e.clientX
   const startSize = props.size
   document.body.style.userSelect = 'none'
@@ -258,6 +269,7 @@ function startResize(e: MouseEvent) {
   }
 
   function onUp() {
+    isResizing.value = false
     document.body.style.userSelect = ''
     document.body.style.cursor = ''
     window.removeEventListener('mousemove', onMove)
@@ -274,6 +286,10 @@ function startResize(e: MouseEvent) {
   transition:
     width var(--duration-normal) var(--ease-out),
     height var(--duration-normal) var(--ease-out);
+}
+
+.dock-body-resizing {
+  transition: none;
 }
 
 .dock-tab-active {

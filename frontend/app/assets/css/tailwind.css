@@ -225,6 +225,13 @@ body {
   font-feature-settings: normal;
 }
 
+.ui-input-editor .cm-editor {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-height: 0;
+}
+
 /* Collection tree */
 .collection-tree .tree-folder-row,
 .collection-tree .tree-request-row {

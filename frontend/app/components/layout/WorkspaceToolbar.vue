@@ -87,6 +87,11 @@
       <span>Settings</span>
     </Button>
 
+    <Button class="text-xs shrink-0 inline-flex items-center gap-1.5" title="Account settings" @click="showAccount = true">
+      <User :size="14" :stroke-width="2" aria-hidden="true" />
+      <span>Account</span>
+    </Button>
+
     <Button class="text-xs shrink-0 inline-flex items-center gap-1.5" title="Sign out" @click="signOut">
       <LogOut :size="14" :stroke-width="2" aria-hidden="true" />
       <span>Sign out</span>
@@ -108,6 +113,7 @@
       :initial-tab="settingsTab"
       @close="showSettings = false"
     />
+    <AccountSettingsModal v-if="showAccount" @close="showAccount = false" />
   </header>
 </template>
 
@@ -124,6 +130,7 @@ import {
   Search,
   Settings,
   Upload,
+  User,
   Users,
 } from 'lucide-vue-next'
 import { THEMES, type ThemeId } from '~/constants/theme'
@@ -146,6 +153,7 @@ const wsStore = useWorkspaceStore()
 const showEnvManager = ref(false)
 const showImport = ref(false)
 const showSettings = ref(false)
+const showAccount = ref(false)
 const settingsTab = ref<'general' | 'team' | 'shares' | 'api-sync' | 'documentation'>('general')
 
 const stageLabels: Record<string, string> = {

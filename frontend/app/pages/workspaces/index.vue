@@ -11,6 +11,7 @@
         </p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
+        <Button @click="showAccount = true">Account</Button>
         <Button variant="primary" @click="showCreate = true">New workspace</Button>
         <Button @click="signOut">Sign out</Button>
       </div>
@@ -61,6 +62,8 @@
         No workspaces yet. Create one to get started.
       </p>
     </div>
+
+    <AccountSettingsModal v-if="showAccount" @close="showAccount = false" />
   </div>
 </template>
 
@@ -73,6 +76,7 @@ const config = useRuntimeConfig()
 const router = useRouter()
 
 const showCreate = ref(false)
+const showAccount = ref(false)
 const newName = ref('')
 const newDescription = ref('')
 const creating = ref(false)

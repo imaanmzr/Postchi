@@ -47,8 +47,10 @@ export const editorTheme = EditorView.theme({
 /** Fills a flex parent and enables internal scrolling (docs editor, response viewer). */
 export const editorFillLayout = EditorView.theme({
   '&': {
+    display: 'block',
     height: '100%',
     width: '100%',
+    maxWidth: '100%',
     minHeight: '0',
   },
   '.cm-scroller': {

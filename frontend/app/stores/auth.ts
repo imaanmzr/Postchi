@@ -66,6 +66,18 @@ export const useAuthStore = defineStore('auth', {
       )
       this.setSession(res.user, res.tokens.access_token, res.tokens.refresh_token)
     },
+    async changePassword(currentPassword: string, newPassword: string) {
+      const api = useApi()
+      const res = await api.post<{ status: string; tokens: { access_token: string; refresh_token: string } }>(
+        '/api/auth/change-password',
+        { current_password: currentPassword, new_password: newPassword },
+      )
+      if (res.tokens?.access_token && res.tokens?.refresh_token) {
+        this.accessToken = res.tokens.access_token
+        this.refreshToken = res.tokens.refresh_token
+        this.persist()
+      }
+    },
     async refresh() {
       try {
         const config = useRuntimeConfig()

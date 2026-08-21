@@ -500,9 +500,12 @@ POST /api/auth/login
 POST /api/auth/refresh
 POST /api/auth/logout
 GET  /api/auth/me
+POST /api/auth/change-password
 ```
 
 `GET /api/config/public` returns `smtp_configured` and `registration_allowed_domains` (no authentication required).
+
+`POST /api/auth/change-password` (authenticated) accepts `{ "current_password", "new_password" }`, updates the password, revokes other sessions, and returns fresh tokens.
 
 ### Workspaces
 

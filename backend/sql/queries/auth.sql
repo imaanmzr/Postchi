@@ -27,6 +27,20 @@ SELECT email, display_name
 FROM users
 WHERE id = @id;
 
+-- name: GetUserAuthByID :one
+SELECT password_hash, auth_provider
+FROM users
+WHERE id = @id;
+
+-- name: UpdateUserPassword :exec
+UPDATE users
+SET password_hash = @password_hash, updated_at = now()
+WHERE id = @id;
+
+-- name: DeleteRefreshTokensByUserID :exec
+DELETE FROM refresh_tokens
+WHERE user_id = @user_id;
+
 -- name: GetWorkspaceMemberRole :one
 SELECT role::text
 FROM workspace_members

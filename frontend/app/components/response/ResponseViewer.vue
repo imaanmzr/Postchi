@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full min-h-0" style="background: var(--color-surface-1)">
+  <div class="flex flex-col h-full min-h-0 min-w-0" style="background: var(--color-surface-1)">
     <div
       class="flex items-center gap-2 px-3 py-2 border-b text-sm flex-shrink-0 font-mono"
       style="border-color: var(--color-border)"
@@ -32,12 +32,12 @@
     </div>
 
     <div
-      class="flex-1 min-h-0 text-sm ui-input-editor"
+      class="flex-1 min-h-0 min-w-0 flex flex-col text-sm ui-input-editor"
       :class="viewTab === 'Body' ? 'overflow-hidden' : 'overflow-auto p-3 break-words'"
     >
       <ResponseBodyViewer
         v-if="viewTab === 'Body'"
-        class="h-full"
+        class="h-full w-full min-h-0 min-w-0"
         :body="response.body"
         :headers="response.headers"
       />

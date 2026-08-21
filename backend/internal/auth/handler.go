@@ -189,6 +189,75 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	respond.JSON(w, http.StatusOK, userResponse{ID: userID.String(), Email: user.Email, DisplayName: user.DisplayName})
 }
 
+func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	userID, err := UserIDFromContext(r.Context())
+	if err != nil {
+		respond.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respond.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		respond.Error(w, http.StatusBadRequest, "current_password and new_password required")
+		return
+	}
+
+	creds, err := h.store.GetUserAuthByID(r.Context(), uuidToPgUUID(userID))
+	if err != nil {
+		respond.Error(w, http.StatusNotFound, "user not found")
+		return
+	}
+	if creds.AuthProvider != "local" {
+		respond.Error(w, http.StatusBadRequest, "password change is not available for this account")
+		return
+	}
+	if !VerifyPassword(creds.PasswordHash, req.CurrentPassword) {
+		respond.Error(w, http.StatusUnauthorized, "current password is incorrect")
+		return
+	}
+
+	hash, err := HashPassword(req.NewPassword)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to hash password")
+		return
+	}
+	if err := h.store.UpdateUserPassword(r.Context(), sqlc.UpdateUserPasswordParams{
+		ID:           uuidToPgUUID(userID),
+		PasswordHash: hash,
+	}); err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to update password")
+		return
+	}
+	_ = h.store.DeleteRefreshTokensByUserID(r.Context(), uuidToPgUUID(userID))
+
+	user, err := h.store.GetUserByID(r.Context(), uuidToPgUUID(userID))
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to load user")
+		return
+	}
+	pair, refreshHash, expiresAt, err := h.tokens.GenerateTokenPair(userID.String(), user.Email)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to generate tokens")
+		return
+	}
+	_ = h.store.CreateRefreshToken(r.Context(), sqlc.CreateRefreshTokenParams{
+		UserID:    uuidToPgUUID(userID),
+		TokenHash: refreshHash,
+		ExpiresAt: timeToPgTimestamptz(expiresAt),
+	})
+
+	respond.JSON(w, http.StatusOK, map[string]any{
+		"status": "password_updated",
+		"tokens": pair,
+	})
+}
+
 func (h *Handler) RequireWorkspaceRole(minRole string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -92,6 +92,7 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 			r.Use(auth.RequireAuth(tokens))
 
 			r.Get("/auth/me", authH.Me)
+			r.Post("/auth/change-password", authH.ChangePassword)
 
 			r.Get("/workspaces", wsH.List)
 			r.Post("/workspaces", wsH.Create)
