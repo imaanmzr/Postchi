@@ -44,7 +44,19 @@ type Invite struct {
 	Email       string `json:"email"`
 	Role        string `json:"role"`
 	ExpiresAt   string `json:"expires_at"`
-	CreatedAt   string `json:"created_at"`
+	CreatedAt   string `json:"created_at,omitempty"`
+	InviteURL   string `json:"invite_url,omitempty"`
+}
+
+type Member struct {
+	UserID      string `json:"user_id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	Role        string `json:"role"`
+}
+
+func inviteURL(base, token string) string {
+	return strings.TrimRight(base, "/") + "/invite/" + token
 }
 
 type InvitePreview struct {
@@ -75,8 +87,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Email string `json:"email"`
-		Role  string `json:"role"`
+		Email     string `json:"email"`
+		Role      string `json:"role"`
+		SendEmail *bool  `json:"send_email"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
 		respond.Error(w, http.StatusBadRequest, "email required")
@@ -86,8 +99,32 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.Role == "" {
 		req.Role = "viewer"
 	}
-	if !h.cfg.SMTPConfigured() {
-		respond.Error(w, http.StatusBadRequest, "SMTP is not configured; set SMTP_HOST to send invites")
+
+	userRow, err := h.store.GetUserByEmail(r.Context(), req.Email)
+	if err == nil {
+		memberUserID := db.FromPGUUID(userRow.ID)
+		err = h.store.UpsertWorkspaceMember(r.Context(), sqlc.UpsertWorkspaceMemberParams{
+			WorkspaceID: db.PGUUID(wsID),
+			UserID:      userRow.ID,
+			Role:        sqlc.WorkspaceRole(req.Role),
+		})
+		if err != nil {
+			respond.Error(w, http.StatusInternalServerError, "failed to add member")
+			return
+		}
+		respond.JSON(w, http.StatusCreated, map[string]any{
+			"outcome": "added",
+			"member": Member{
+				UserID:      memberUserID.String(),
+				Email:       req.Email,
+				DisplayName: userRow.DisplayName,
+				Role:        req.Role,
+			},
+		})
+		return
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		respond.Error(w, http.StatusInternalServerError, "failed to look up user")
 		return
 	}
 
@@ -113,15 +150,33 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inviteURL := strings.TrimRight(h.cfg.AppPublicURL, "/") + "/invite/" + token
-	if err := h.mailer.SendInvite(req.Email, wsName, inviteURL); err != nil {
-		respond.Error(w, http.StatusInternalServerError, "failed to send invite email: "+err.Error())
-		return
+	url := inviteURL(h.cfg.AppPublicURL, token)
+	sendEmail := h.cfg.SMTPConfigured()
+	if req.SendEmail != nil {
+		sendEmail = *req.SendEmail
+	}
+	emailSent := false
+	if sendEmail && h.cfg.SMTPConfigured() {
+		if err := h.mailer.SendInvite(req.Email, wsName, url); err != nil {
+			respond.Error(w, http.StatusInternalServerError, "failed to send invite email: "+err.Error())
+			return
+		}
+		emailSent = true
 	}
 
-	respond.JSON(w, http.StatusCreated, Invite{
-		ID: db.FromPGUUID(inviteID).String(), WorkspaceID: wsID.String(), Email: req.Email, Role: req.Role,
-		ExpiresAt: expires.Format(time.RFC3339),
+	invite := Invite{
+		ID:          db.FromPGUUID(inviteID).String(),
+		WorkspaceID: wsID.String(),
+		Email:       req.Email,
+		Role:        req.Role,
+		ExpiresAt:   expires.Format(time.RFC3339),
+		InviteURL:   url,
+	}
+	respond.JSON(w, http.StatusCreated, map[string]any{
+		"outcome":     "invited",
+		"invite":      invite,
+		"invite_url":  url,
+		"email_sent":  emailSent,
 	})
 }
 
@@ -145,6 +200,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 			Role:        row.Role,
 			ExpiresAt:   row.ExpiresAt.Time.Format(time.RFC3339),
 			CreatedAt:   row.CreatedAt.Time.Format(time.RFC3339),
+			InviteURL:   inviteURL(h.cfg.AppPublicURL, row.Token),
 		})
 	}
 	respond.JSON(w, http.StatusOK, list)

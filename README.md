@@ -302,6 +302,7 @@ Copy `.env.example` to `.env` and adjust values for your environment.
 | `SMTP_PASS` | *(empty)* | SMTP password |
 | `SMTP_FROM` | `postchi@localhost` | From address |
 | `INVITE_TTL_HOURS` | `168` | Invite link expiry (7 days) |
+| `REGISTRATION_ALLOWED_EMAIL_DOMAINS` | *(empty)* | Comma-separated domains allowed for self-registration (e.g. `yourcompany.com`). Invites are not restricted. Empty = open registration. |
 
 ### Migrations
 
@@ -462,7 +463,7 @@ When resolving `{{variables}}`, higher entries override lower ones:
 | **editor** | Yes | Yes | Yes | Own | No |
 | **owner** | Yes | Yes | Yes | Yes | Yes |
 
-Owners can invite members, revoke invites, and manage workspace settings. Editors can create and modify collections, requests, and environments within the workspace.
+Owners can add teammates (registered users are added immediately; others get an invite link to share manually or by email), revoke invites, and manage workspace settings. Editors can create and modify collections, requests, and environments within the workspace.
 
 ---
 
@@ -473,12 +474,15 @@ All authenticated routes require a Bearer token from `POST /api/auth/login` or `
 ### Auth
 
 ```
+GET  /api/config/public
 POST /api/auth/register
 POST /api/auth/login
 POST /api/auth/refresh
 POST /api/auth/logout
 GET  /api/auth/me
 ```
+
+`GET /api/config/public` returns `smtp_configured` and `registration_allowed_domains` (no authentication required).
 
 ### Workspaces
 
@@ -616,7 +620,7 @@ These are intentional v1 scope boundaries:
 - **Mock servers**: planned for v2
 - **SSO/OIDC**: deferred (auth interface is ready for extension)
 - **Bruno post-response Expr runtime**: JSON-path subset only (`res.body.foo`, `res.status`)
-- **Invite emails** require SMTP configuration; use Mailpit in docker-compose for local dev
+- **Invite emails** are optional when SMTP is configured; without SMTP, owners can copy invite links from workspace settings. Use Mailpit in docker-compose for local email testing.
 
 ---
 

@@ -21,7 +21,12 @@ export interface PendingInvite {
   email: string
   role: string
   expires_at: string
+  invite_url?: string
 }
+
+export type AddTeamResult =
+  | { outcome: 'added', member: Member }
+  | { outcome: 'invited', invite: PendingInvite, invite_url: string, email_sent: boolean }
 
 export const useWorkspaceStore = defineStore('workspace', {
   state: () => ({
@@ -66,10 +71,17 @@ export const useWorkspaceStore = defineStore('workspace', {
       const api = useApi()
       this.members = await api.get<Member[]>(`/api/workspaces/${workspaceId}/members`)
     },
-    async addMember(workspaceId: string, email: string, role: string) {
+    async addMember(workspaceId: string, email: string, role: string, sendEmail?: boolean) {
       const api = useApi()
-      await api.post(`/api/workspaces/${workspaceId}/invites`, { email, role })
-      await this.fetchPendingInvites(workspaceId)
+      const body: { email: string, role: string, send_email?: boolean } = { email, role }
+      if (sendEmail !== undefined) body.send_email = sendEmail
+      const result = await api.post<AddTeamResult>(`/api/workspaces/${workspaceId}/invites`, body)
+      if (result.outcome === 'added') {
+        await this.fetchMembers(workspaceId)
+      } else {
+        await this.fetchPendingInvites(workspaceId)
+      }
+      return result
     },
     async fetchPendingInvites(workspaceId: string) {
       const api = useApi()

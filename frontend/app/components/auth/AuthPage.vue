@@ -15,6 +15,13 @@
         <p class="text-sm mt-1 text-muted">
           {{ mode === 'register' ? 'Set up a new account to get started.' : 'Sign in to your workspaces.' }}
         </p>
+        <p v-if="mode === 'register' && registrationDomains.length" class="text-xs mt-2 text-muted">
+          Registration is limited to
+          <template v-for="(domain, i) in registrationDomains" :key="domain">
+            <span>@{{ domain }}</span><span v-if="i < registrationDomains.length - 1">, </span>
+          </template>
+          emails.
+        </p>
       </div>
 
       <form class="space-y-4" @submit.prevent="handleSubmit">
@@ -70,6 +77,18 @@ const password = ref('')
 const displayName = ref('')
 const loading = ref(false)
 const error = ref('')
+const registrationDomains = ref<string[]>([])
+
+onMounted(async () => {
+  if (props.mode !== 'register') return
+  try {
+    const api = useApi()
+    const cfg = await api.get<{ registration_allowed_domains?: string[] }>('/api/config/public')
+    registrationDomains.value = cfg.registration_allowed_domains ?? []
+  } catch {
+    // ignore
+  }
+})
 
 async function handleSubmit() {
   loading.value = true

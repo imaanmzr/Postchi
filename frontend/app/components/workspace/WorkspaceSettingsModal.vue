@@ -88,9 +88,9 @@
 
         <template v-else>
           <template v-if="isOwner">
-            <h3 class="font-medium mb-1">Invite teammate</h3>
+            <h3 class="font-medium mb-1">Add teammate</h3>
             <p class="text-xs mb-3" style="color: var(--text-secondary)">
-              Send an email invite. They'll get a link to join this workspace.
+              Registered users are added immediately. Others receive an invite link you can share manually{{ smtpConfigured ? ' or by email' : '' }}.
             </p>
             <div class="mb-4 space-y-3">
               <div>
@@ -117,15 +117,20 @@
                   :disabled="inviting || !inviteEmail.trim()"
                   @click="invite"
                 >
-                  {{ inviting ? 'Sending…' : 'Send invite' }}
+                  {{ inviting ? 'Adding…' : 'Add teammate' }}
                 </Button>
               </div>
+              <label v-if="smtpConfigured" class="flex items-center gap-2 text-sm cursor-pointer">
+                <input v-model="sendEmailInvite" type="checkbox" class="rounded" />
+                Send email invite
+              </label>
             </div>
 
             <h3 class="font-medium mb-2">Pending invites</h3>
             <p v-if="!wsStore.pendingInvites.length" class="text-sm mb-4" style="color: var(--text-secondary)">No pending invites.</p>
             <div v-for="inv in wsStore.pendingInvites" :key="inv.id" class="flex items-center gap-2 py-2 border-t text-sm" style="border-color: var(--border)">
-              <span class="flex-1">{{ inv.email }} · {{ inv.role }}</span>
+              <span class="flex-1 min-w-0 truncate">{{ inv.email }} · {{ inv.role }}</span>
+              <Button v-if="inv.invite_url" class="text-xs shrink-0" @click="copyInviteUrl(inv.invite_url!)">Copy link</Button>
               <Button @click="revokeInvite(inv.id)">Revoke</Button>
             </div>
           </template>
@@ -212,6 +217,8 @@ const name = ref('')
 const description = ref('')
 const inviteEmail = ref('')
 const inviteRole = ref('editor')
+const sendEmailInvite = ref(true)
+const smtpConfigured = ref(false)
 const askDelete = ref(false)
 const askRemoveUser = ref<string | null>(null)
 const saving = ref(false)
@@ -236,6 +243,14 @@ const removeOpen = computed({
 })
 
 onMounted(async () => {
+  try {
+    const api = useApi()
+    const cfg = await api.get<{ smtp_configured: boolean }>('/api/config/public')
+    smtpConfigured.value = cfg.smtp_configured
+    sendEmailInvite.value = cfg.smtp_configured
+  } catch {
+    // non-fatal; defaults keep send-email unchecked when unknown
+  }
   if (!wsStore.workspaces.length) {
     await wsStore.fetchWorkspaces()
   }
@@ -269,14 +284,34 @@ async function invite() {
   actionError.value = ''
   actionSuccess.value = ''
   try {
-    await wsStore.addMember(props.workspaceId, email, inviteRole.value)
+    const result = await wsStore.addMember(
+      props.workspaceId,
+      email,
+      inviteRole.value,
+      smtpConfigured.value ? sendEmailInvite.value : false,
+    )
     inviteEmail.value = ''
-    actionSuccess.value = `Invite sent to ${email}.`
+    if (result.outcome === 'added') {
+      actionSuccess.value = `${email} was added to the workspace.`
+    } else if (result.email_sent) {
+      actionSuccess.value = `Invite email sent to ${email}.`
+    } else {
+      actionSuccess.value = `Invite link created — copy and share with ${email}.`
+      if (result.invite_url) {
+        await copyToClipboard(result.invite_url)
+        actionSuccess.value += ' Link copied to clipboard.'
+      }
+    }
   } catch (e: any) {
     actionError.value = e.message
   } finally {
     inviting.value = false
   }
+}
+
+async function copyInviteUrl(url: string) {
+  await copyToClipboard(url)
+  actionSuccess.value = 'Invite link copied.'
 }
 
 async function updateRole(userId: string, role: string) {

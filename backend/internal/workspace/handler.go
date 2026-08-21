@@ -276,6 +276,7 @@ func (h *Handler) AddMember(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "email required")
 		return
 	}
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	if req.Role == "" {
 		req.Role = "viewer"
 	}

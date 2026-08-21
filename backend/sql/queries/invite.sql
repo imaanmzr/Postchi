@@ -10,7 +10,7 @@ ON CONFLICT (workspace_id, email) DO UPDATE SET
 RETURNING id;
 
 -- name: ListPendingWorkspaceInvites :many
-SELECT id, workspace_id, email, role::text, expires_at, created_at
+SELECT id, workspace_id, email, role::text, token, expires_at, created_at
 FROM workspace_invites
 WHERE workspace_id = @workspace_id
   AND accepted_at IS NULL

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,6 +60,11 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Email == "" || req.Password == "" {
 		respond.Error(w, http.StatusBadRequest, "email and password required")
+		return
+	}
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	if !h.cfg.RegistrationDomainAllowed(req.Email) {
+		respond.Error(w, http.StatusForbidden, "registration is limited to approved email domains")
 		return
 	}
 	hash, err := HashPassword(req.Password)

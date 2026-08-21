@@ -24,6 +24,7 @@ import (
 	"github.com/imaanmzr/postchi/backend/internal/history"
 	"github.com/imaanmzr/postchi/backend/internal/importexport"
 	"github.com/imaanmzr/postchi/backend/internal/invite"
+	"github.com/imaanmzr/postchi/backend/internal/publicconfig"
 	"github.com/imaanmzr/postchi/backend/internal/request"
 	"github.com/imaanmzr/postchi/backend/internal/share"
 	"github.com/imaanmzr/postchi/backend/internal/shared/config"
@@ -58,6 +59,7 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 	catalogH := catalog.NewHandler(store)
 	docsyncH := docsync.NewHandler(store, cryptoSvc)
 	wsTokenH := workspacetoken.NewHandler(store)
+	publicCfgH := publicconfig.NewHandler(cfg)
 	hub := collab.NewHub(log)
 
 	r := chi.NewRouter()
@@ -75,6 +77,8 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 	r.Get("/ready", appMiddleware.Ready(func(ctx context.Context) error { return pool.Ping(ctx) }))
 
 	r.Route("/api", func(r chi.Router) {
+		r.Get("/config/public", publicCfgH.Get)
+
 		r.Post("/auth/register", authH.Register)
 		r.Post("/auth/login", authH.Login)
 		r.Post("/auth/refresh", authH.Refresh)

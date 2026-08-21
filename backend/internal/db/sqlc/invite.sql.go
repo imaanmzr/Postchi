@@ -56,7 +56,7 @@ func (q *Queries) GetWorkspaceInviteByToken(ctx context.Context, token string) (
 }
 
 const listPendingWorkspaceInvites = `-- name: ListPendingWorkspaceInvites :many
-SELECT id, workspace_id, email, role::text, expires_at, created_at
+SELECT id, workspace_id, email, role::text, token, expires_at, created_at
 FROM workspace_invites
 WHERE workspace_id = $1
   AND accepted_at IS NULL
@@ -69,6 +69,7 @@ type ListPendingWorkspaceInvitesRow struct {
 	WorkspaceID pgtype.UUID        `json:"workspace_id"`
 	Email       string             `json:"email"`
 	Role        string             `json:"role"`
+	Token       string             `json:"token"`
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
@@ -87,6 +88,7 @@ func (q *Queries) ListPendingWorkspaceInvites(ctx context.Context, workspaceID p
 			&i.WorkspaceID,
 			&i.Email,
 			&i.Role,
+			&i.Token,
 			&i.ExpiresAt,
 			&i.CreatedAt,
 		); err != nil {

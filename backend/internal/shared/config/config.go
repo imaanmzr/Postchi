@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/imaanmzr/postchi/backend/internal/shared/emailpolicy"
 )
 
 // Pinned versions: Go 1.26.3, chi v5.2.1, pgx v5.7.4
@@ -31,7 +33,8 @@ type Config struct {
 	SMTPUser         string
 	SMTPPass         string
 	SMTPFrom         string
-	InviteTTL        time.Duration
+	InviteTTL                    time.Duration
+	RegistrationAllowedDomains   []string
 }
 
 func Load() (*Config, error) {
@@ -65,9 +68,26 @@ func Load() (*Config, error) {
 		SMTPUser:         getEnv("SMTP_USER", ""),
 		SMTPPass:         getEnv("SMTP_PASS", ""),
 		SMTPFrom:         getEnv("SMTP_FROM", "postchi@localhost"),
-		InviteTTL:        time.Duration(inviteHours) * time.Hour,
+		InviteTTL:                  time.Duration(inviteHours) * time.Hour,
+		RegistrationAllowedDomains: parseRegistrationDomains(getEnv("REGISTRATION_ALLOWED_EMAIL_DOMAINS", "")),
 	}
 	return cfg, nil
+}
+
+func parseRegistrationDomains(raw string) []string {
+	parts := strings.Split(raw, ",")
+	var out []string
+	for _, p := range parts {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func (c *Config) RegistrationDomainAllowed(email string) bool {
+	return emailpolicy.Allowed(email, c.RegistrationAllowedDomains)
 }
 
 func parseCORSOrigins(raw string) []string {
