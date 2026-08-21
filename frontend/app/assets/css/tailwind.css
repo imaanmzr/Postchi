@@ -47,7 +47,7 @@ body {
   @apply antialiased;
 }
 
-/* Plain soft background — no grid pattern */
+/* Plain soft background - no grid pattern */
 .app-bg {
   background: var(--color-bg);
 }

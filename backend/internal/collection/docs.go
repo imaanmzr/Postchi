@@ -147,7 +147,7 @@ func formatContentMarkdown(content any) string {
 func contentTypeSummary(content any) string {
 	cm, ok := content.(map[string]any)
 	if !ok || len(cm) == 0 {
-		return "—"
+		return "-"
 	}
 	types := make([]string, 0, len(cm))
 	for mt := range cm {

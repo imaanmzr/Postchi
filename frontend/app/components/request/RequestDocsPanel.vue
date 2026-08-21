@@ -62,7 +62,7 @@
               <td class="py-1 pr-2 font-mono">{{ p.name }}</td>
               <td class="py-1 pr-2">{{ p.in }}</td>
               <td class="py-1 pr-2">{{ p.required ? 'Yes' : 'No' }}</td>
-              <td class="py-1">{{ p.description || '—' }}</td>
+              <td class="py-1">{{ p.description || '-' }}</td>
             </tr>
           </tbody>
         </table>

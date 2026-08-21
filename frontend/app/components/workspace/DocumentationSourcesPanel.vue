@@ -3,7 +3,7 @@
     <section>
       <h3 class="font-medium mb-2">Git markdown docs</h3>
       <p class="text-xs text-muted mb-3">
-        Sync <code>.md</code> documentation from GitHub or GitLab — browser links like <code>/-/tree/main/docs</code> work too.
+        Sync <code>.md</code> documentation from GitHub or GitLab - browser links like <code>/-/tree/main/docs</code> work too.
         To import Bruno API collections, use <strong>API Sync → Sync Bruno collection from Git</strong>.
       </p>
       <div class="space-y-2 mb-3">
@@ -16,7 +16,7 @@
           Detected: {{ detectedProvider(gitForm.repo_url) }}
         </p>
         <Input v-model="gitForm.branch" placeholder="Branch (default: main)" />
-        <Input v-model="gitForm.path_prefix" placeholder="Path prefix (optional, e.g. docs — auto-filled from browser links)" />
+        <Input v-model="gitForm.path_prefix" placeholder="Path prefix (optional, e.g. docs - auto-filled from browser links)" />
         <Input
           v-model="gitForm.link_template"
           placeholder="Link template (optional, e.g. docs/{collection_slug}/{request_slug}.md)"
@@ -29,7 +29,7 @@
           class="w-full text-sm rounded px-2 py-1.5 border"
           style="border-color: var(--color-border); background: var(--color-surface-1)"
         >
-          <option value="">API collection (optional — scopes auto-linking)</option>
+          <option value="">API collection (optional - scopes auto-linking)</option>
           <option v-for="col in workspaceCollections" :key="col.id" :value="col.id">
             {{ col.name }}
           </option>
@@ -167,7 +167,7 @@
         <Button variant="primary" :disabled="creatingToken" @click="createToken">{{ creatingToken ? 'Creating…' : 'Generate' }}</Button>
       </div>
       <p v-if="newToken" class="text-xs p-2 rounded font-mono mb-3 break-all" style="background: var(--color-surface-2)">
-        Copy now — won't be shown again: {{ newToken }}
+        Copy now - won't be shown again: {{ newToken }}
       </p>
       <div v-for="t in tokens" :key="t.id" class="flex items-center gap-2 py-2 border-t text-sm" style="border-color: var(--border)">
         <div class="flex-1">
@@ -368,7 +368,7 @@ async function syncSource(id: string) {
       syncError.value = ''
       const parts = [`Synced ${result.synced} doc(s)`]
       if (result.total != null) parts.push(`of ${result.total} found`)
-      if (result.capped) parts.push(`(${result.capped} skipped — over limit)`)
+      if (result.capped) parts.push(`(${result.capped} skipped - over limit)`)
       if (result.errors) parts.push(`(${result.errors} errors)`)
       if (result.auto_linked) parts.push(`${result.auto_linked} auto-linked`)
       syncMessage.value = parts.join(' ')
@@ -379,7 +379,7 @@ async function syncSource(id: string) {
     await load()
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') {
-      syncError.value = 'Sync timed out — try a narrower path prefix (e.g. docs) or fewer files'
+      syncError.value = 'Sync timed out - try a narrower path prefix (e.g. docs) or fewer files'
     } else {
       syncError.value = e instanceof Error ? e.message : 'Sync failed'
     }

@@ -213,14 +213,14 @@ func (h *Handler) runAutoLink(ctx context.Context, input AutoLinkInput) (AutoLin
 		return nil
 	}
 
-	// 1. Frontmatter request names — always auto-link (explicit intent).
+	// 1. Frontmatter request names - always auto-link (explicit intent).
 	for _, c := range matchFrontmatterRequests(input.Docs, input.Requests) {
 		if err := autoLink(c); err != nil {
 			return result, err
 		}
 	}
 
-	// 2. Path template — scoped to collection when set.
+	// 2. Path template - scoped to collection when set.
 	scopedRequests := filterRequestsByCollection(input.Requests, input.CollectionID)
 	if input.LinkTemplate != "" {
 		collections := buildCollectionMap(scopedRequests)
@@ -238,7 +238,7 @@ func (h *Handler) runAutoLink(ctx context.Context, input AutoLinkInput) (AutoLin
 		}
 	}
 
-	// 3. Exact name — scoped to collection when set.
+	// 3. Exact name - scoped to collection when set.
 	exactCandidates := linkmatcher.MatchExactName(input.Docs, scopedRequests)
 	auto, ambiguous := linkmatcher.PartitionUnique(exactCandidates)
 	for _, c := range auto {

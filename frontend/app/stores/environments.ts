@@ -122,7 +122,7 @@ export const useEnvironmentsStore = defineStore('environments', {
         const i = this.environments.findIndex(e => e.id === full.id)
         if (i >= 0) this.environments[i] = { ...this.environments[i], ...full }
       } catch {
-        // ignore — suggestions still work without env vars
+        // ignore - suggestions still work without env vars
       }
     },
     loadActive() {

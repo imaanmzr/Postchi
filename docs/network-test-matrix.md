@@ -13,11 +13,11 @@ See also [documentation-linking.md](documentation-linking.md) for git doc sync a
 
 | #   | Method | Target                                                      | Body / headers                         | Expected                    | Pass? | Notes |
 | --- | ------ | ----------------------------------------------------------- | -------------------------------------- | --------------------------- | ----- | ----- |
-| 1   | GET    | `https://jsonplaceholder.typicode.com/posts?userId=1`       | —                                      | 200, array of posts         |       |       |
+| 1   | GET    | `https://jsonplaceholder.typicode.com/posts?userId=1`       | -                                      | 200, array of posts         |       |       |
 | 2   | POST   | `https://jsonplaceholder.typicode.com/posts`                | JSON `{"title":"test","body":"x","userId":1}` | 201, body echoed + id |       |       |
 | 3   | POST   | `https://jsonplaceholder.typicode.com/posts`                | multipart form-data + file field       | 201 (JSONPlaceholder accepts multipart) |       |       |
 | 4   | PUT    | `https://jsonplaceholder.typicode.com/posts/1`              | JSON body                              | 200                         |       |       |
-| 5   | DELETE | `https://jsonplaceholder.typicode.com/posts/1`              | —                                      | 200                         |       |       |
+| 5   | DELETE | `https://jsonplaceholder.typicode.com/posts/1`              | -                                      | 200                         |       |       |
 | 6   | GET    | `https://jsonplaceholder.typicode.com/posts/1`              | `Authorization: Bearer test-token-123` | 200 (auth ignored by API)   |       |       |
 
 

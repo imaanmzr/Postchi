@@ -47,10 +47,10 @@ Open **Documentation** from the workspace toolbar (`/workspaces/:id/docs`).
 
 ### Views
 
-- **Tree** — browse synced and local pages by folder structure
-- **Edit / Preview / Split** — write markdown with autosave
-- **Graph** — visual map of doc pages, operations, auto links, manual links, and pending suggestions
-- **Suggestions** — review heuristic doc ↔ API matches (header button with pending count)
+- **Tree** - browse synced and local pages by folder structure
+- **Edit / Preview / Split** - write markdown with autosave
+- **Graph** - visual map of doc pages, operations, auto links, manual links, and pending suggestions
+- **Suggestions** - review heuristic doc ↔ API matches (header button with pending count)
 
 ### Local pages
 

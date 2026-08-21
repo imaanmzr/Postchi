@@ -307,7 +307,7 @@ async function runImport() {
         }
       }
     } catch {
-      // optional tip — do not fail a successful import
+      // optional tip - do not fail a successful import
     }
     await colStore.fetchCollections(props.workspaceId)
     await colStore.fetchAllRequests(props.workspaceId)

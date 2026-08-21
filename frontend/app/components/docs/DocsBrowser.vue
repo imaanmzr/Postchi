@@ -302,7 +302,7 @@ const autosave = useDocAutosave({
     const slug = activeSlug.value
     if (!slug || suppressAutosave.value) return
     // Never persist editor state that doesn't belong to the active doc
-    // (e.g. an empty editor after a remount) — that would destroy content.
+    // (e.g. an empty editor after a remount) - that would destroy content.
     if (appliedSlug.value !== slug) return
     await docsStore.updateDoc(props.workspaceId, slug, {
       title: editTitle.value,

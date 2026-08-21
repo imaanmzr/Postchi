@@ -1,4 +1,4 @@
-# Postchi — local development
+# Postchi - local development
 # Usage: make help
 
 .DEFAULT_GOAL := help

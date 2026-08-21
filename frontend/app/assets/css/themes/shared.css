@@ -1,4 +1,4 @@
-/* Layout, typography, and motion tokens — theme-independent */
+/* Layout, typography, and motion tokens - theme-independent */
 :root {
   --font-sans: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;

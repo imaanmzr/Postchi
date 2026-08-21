@@ -4,6 +4,7 @@ Additional guides for operators and contributors.
 
 | Document | Description |
 |----------|-------------|
+| [Team members and invites](team-members.md) | Add teammates, invite links, SMTP, and registration domain allowlist |
 | [Documentation linking](documentation-linking.md) | Markdown workspace, git sync, request ↔ doc links, and the unified docs bundle |
 | [Network test matrix](network-test-matrix.md) | Remote/LAN acceptance checklist for request execution and WebSocket collaboration |
 

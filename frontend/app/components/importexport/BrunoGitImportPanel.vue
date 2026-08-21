@@ -277,7 +277,7 @@ async function createSource() {
   } catch (e) {
     progress.value = ''
     if (e instanceof Error && e.name === 'AbortError') {
-      error.value = 'Sync timed out — try a narrower path prefix or fewer files'
+      error.value = 'Sync timed out - try a narrower path prefix or fewer files'
     } else {
       error.value = e instanceof Error ? e.message : 'Failed to add git source'
     }

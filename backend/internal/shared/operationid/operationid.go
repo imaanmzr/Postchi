@@ -101,7 +101,7 @@ func NormalizeFrontmatterOp(raw string) []string {
 		return out
 	}
 
-	// Bare OpenAPI operationId with no path — keep as-is only.
+	// Bare OpenAPI operationId with no path - keep as-is only.
 	return out
 }
 

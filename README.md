@@ -28,6 +28,7 @@
 - [Documentation linking](#documentation-linking)
 - [Variable Precedence](#variable-precedence)
 - [Roles & Permissions](#roles--permissions)
+- [Team members](#team-members)
 - [API Reference](#api-reference)
 - [Known Limitations](#known-limitations)
 - [Tech Stack](#tech-stack)
@@ -40,11 +41,12 @@
 
 - **Multi-user workspaces** with role-based access control (viewer, editor, owner)
 - **Real-time collaboration** over WebSocket when teammates edit the same workspace
-- **Email invites** with configurable TTL (Mailpit included for local dev)
+- **Team onboarding** - add registered users immediately; invite others via copyable link or optional email
+- **Registration domain allowlist** - optional `REGISTRATION_ALLOWED_EMAIL_DOMAINS` for internal-only signup
 - **Share links** for read-only access or one-click import into another workspace
-- **Catalog share links** — publish read-only snapshots of the API catalog and linked documentation
+- **Catalog share links** - publish read-only snapshots of the API catalog and linked documentation
 - **Activity feed** per workspace
-- **Nested collections** — folder hierarchy with drag-and-drop reordering
+- **Nested collections** - folder hierarchy with drag-and-drop reordering
 
 ![Workspace settings with Git markdown docs sync and CI automation tokens](screenshots/scrsht-02.png)
 
@@ -84,16 +86,16 @@
 - Sync operations into collections with diff view (added, updated, removed)
 - Per-environment base URL mapping
 - Track source operation IDs for incremental updates
-- **CI spec push** — workspace API tokens with `spec:push` scope for pipelines (`POST /api/workspaces/:id/api-specs/push`)
+- **CI spec push** - workspace API tokens with `spec:push` scope for pipelines (`POST /api/workspaces/:id/api-specs/push`)
 
 ### Bruno & Git Collection Sync
 
 Keep Bruno collections in sync with your repository instead of one-off ZIP imports.
 
-- **Bruno Git sources** — connect GitHub or GitLab repos; sync `.bru` files into workspace collections on demand
-- **One-time Git import** — import a Bruno or OpenCollection tree from a repo URL without creating a persistent source
-- **Incremental sync** — added, updated, and removed requests tracked via content hashes
-- **Operation ID backfill** — assign canonical `method-/path` IDs to legacy Bruno imports for doc linking
+- **Bruno Git sources** - connect GitHub or GitLab repos; sync `.bru` files into workspace collections on demand
+- **One-time Git import** - import a Bruno or OpenCollection tree from a repo URL without creating a persistent source
+- **Incremental sync** - added, updated, and removed requests tracked via content hashes
+- **Operation ID backfill** - assign canonical `method-/path` IDs to legacy Bruno imports for doc linking
 - Configurable branch, path prefix, and private-repo access tokens (same PAT scopes as doc sync)
 
 Configure sources under **Settings → API Sync → Sync Bruno collection from Git**.
@@ -105,16 +107,16 @@ Keep API knowledge next to the requests your team actually runs.
 - **Markdown documentation workspace** with tree navigation, live preview, split edit, and a link graph
 - **GitHub & GitLab sync** for markdown repos (public or private with PAT)
 - **Unified docs bundle** per request: OpenAPI `api_doc`, team notes, frontmatter-linked pages, and manual doc links
-- **Bidirectional linking** — attach doc pages from a request, or link requests from a doc page
-- **In-request preview** — compact linked-doc cards with a centered preview modal and **Open doc** shortcut
-- **API catalog** — browse all endpoints with documentation coverage and edit docs without opening the full builder
-- **Frontmatter operation links** — `operations:` in synced markdown auto-links pages to matching OpenAPI/Bruno operations
-- **Frontmatter request links** — `request:` or `requests:` in markdown links pages to collection requests by name
+- **Bidirectional linking** - attach doc pages from a request, or link requests from a doc page
+- **In-request preview** - compact linked-doc cards with a centered preview modal and **Open doc** shortcut
+- **API catalog** - browse all endpoints with documentation coverage and edit docs without opening the full builder
+- **Frontmatter operation links** - `operations:` in synced markdown auto-links pages to matching OpenAPI/Bruno operations
+- **Frontmatter request links** - `request:` or `requests:` in markdown links pages to collection requests by name
 - **Deterministic auto-linking** on git doc sync:
   - Exact name match (`get-user` request ↔ `get-user.md`)
   - Configurable **path template** per doc source (e.g. `docs/{collection_slug}/{request_slug}.md`)
   - Optional **API collection** scope on doc sources to avoid cross-collection collisions
-- **Smart suggestions** — tightened heuristics for ambiguous cases; accept/reject in the Suggestions panel
+- **Smart suggestions** - tightened heuristics for ambiguous cases; accept/reject in the Suggestions panel
 - **Catalog share links** for read-only documentation snapshots
 
 See [docs/documentation-linking.md](docs/documentation-linking.md) for setup, frontmatter format, path templates, and API details.
@@ -156,7 +158,7 @@ See [docs/documentation-linking.md](docs/documentation-linking.md) for setup, fr
 | | |
 |---|---|
 | Request builder with JSON tree response | ![Request builder](screenshots/scrsht-01.png) |
-| Workspace settings — Git docs sync & CI tokens | ![Workspace settings](screenshots/scrsht-02.png) |
+| Workspace settings - Git docs sync & CI tokens | ![Workspace settings](screenshots/scrsht-02.png) |
 | Per-request docs & linked pages | ![Request docs](screenshots/scrsht-03.png) |
 | In-app doc preview modal | ![Doc preview](screenshots/scrsht-04.png) |
 | Markdown docs workspace (edit / preview) | ![Docs workspace](screenshots/scrsht-05.jpg) |
@@ -464,6 +466,24 @@ When resolving `{{variables}}`, higher entries override lower ones:
 | **owner** | Yes | Yes | Yes | Yes | Yes |
 
 Owners can add teammates (registered users are added immediately; others get an invite link to share manually or by email), revoke invites, and manage workspace settings. Editors can create and modify collections, requests, and environments within the workspace.
+
+See [docs/team-members.md](docs/team-members.md) for roles, invite links, SMTP options, and the registration allowlist.
+
+---
+
+## Team members
+
+Workspace owners add teammates under **Settings → Team**.
+
+| Flow | Behavior |
+|------|----------|
+| Registered email | Added to the workspace immediately with the chosen role |
+| Unregistered email | Pending invite with a copyable link (`invite_url`); optional email when SMTP is configured |
+| Self-registration | Open by default; restrict with `REGISTRATION_ALLOWED_EMAIL_DOMAINS` |
+
+`POST /api/workspaces/:id/invites` accepts `{ "email", "role", "send_email?" }` and returns either `outcome: "added"` or `outcome: "invited"` with `invite_url` and `email_sent`.
+
+Full guide: [docs/team-members.md](docs/team-members.md).
 
 ---
 

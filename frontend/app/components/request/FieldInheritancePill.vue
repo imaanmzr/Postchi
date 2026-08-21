@@ -7,7 +7,7 @@
       style="background: var(--method-patch); color: var(--color-bg)"
       @click="$emit('reset', field)"
     >
-      Customized — reset to template
+      Customized - reset to template
     </button>
     <span
       v-else

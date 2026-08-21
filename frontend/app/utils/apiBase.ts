@@ -9,7 +9,7 @@ export function apiUrl(configured: string | undefined, path: string): string {
   return base ? `${base}${path}` : path
 }
 
-/** Health lives at API root (/health), not under /api — proxied in dev when apiUrl is empty. */
+/** Health lives at API root (/health), not under /api - proxied in dev when apiUrl is empty. */
 export function healthUrl(configured?: string | undefined): string {
   return apiUrl(configured, '/health')
 }

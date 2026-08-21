@@ -54,7 +54,7 @@
           :style="{ color: t.passed ? 'var(--method-get)' : 'var(--method-delete)' }"
         >
           {{ t.passed ? '✓' : '✗' }} {{ t.name }}
-          <span v-if="t.message" class="text-muted"> — {{ t.message }}</span>
+          <span v-if="t.message" class="text-muted"> - {{ t.message }}</span>
         </div>
         <p v-if="!response.test_results?.length" class="text-muted">No tests ran</p>
       </div>

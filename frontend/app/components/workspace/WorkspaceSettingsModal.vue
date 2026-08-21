@@ -296,7 +296,7 @@ async function invite() {
     } else if (result.email_sent) {
       actionSuccess.value = `Invite email sent to ${email}.`
     } else {
-      actionSuccess.value = `Invite link created — copy and share with ${email}.`
+      actionSuccess.value = `Invite link created - copy and share with ${email}.`
       if (result.invite_url) {
         await copyToClipboard(result.invite_url)
         actionSuccess.value += ' Link copied to clipboard.'
