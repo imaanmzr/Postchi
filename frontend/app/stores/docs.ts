@@ -56,7 +56,7 @@ export interface DocLinkSuggestion {
   url: string
   collection_name: string
   reason: string
-  confidence: 'high' | 'medium' | 'low'
+  confidence: 'exact' | 'high' | 'medium' | 'low'
   evidence: Record<string, unknown>
   status: string
 }
@@ -267,13 +267,16 @@ export const useDocsStore = defineStore('docs', {
       this.suggestions = this.suggestions.filter(s => s.id !== suggestionId)
       this.pendingSuggestionCount = Math.max(0, this.pendingSuggestionCount - 1)
     },
-    async acceptAllHighSuggestions(workspaceId: string) {
+    async acceptAllSuggestions(workspaceId: string, confidence: 'high' | 'all' = 'all') {
       const api = useApi()
       const result = await api.post<{ accepted: number }>(
-        `/api/workspaces/${workspaceId}/doc-links/suggestions/accept-all?confidence=high`,
+        `/api/workspaces/${workspaceId}/doc-links/suggestions/accept-all?confidence=${encodeURIComponent(confidence)}`,
       )
       await this.fetchSuggestions(workspaceId, 'pending')
       return result
+    },
+    async acceptAllHighSuggestions(workspaceId: string) {
+      return this.acceptAllSuggestions(workspaceId, 'high')
     },
     async backfillOperationIds(workspaceId: string) {
       const api = useApi()

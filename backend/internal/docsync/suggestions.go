@@ -103,7 +103,7 @@ func (h *Handler) AcceptAllDocLinkSuggestions(w http.ResponseWriter, r *http.Req
 	}
 	var accepted int
 	for _, row := range rows {
-		if row.Confidence != confidence && !(confidence == "high" && row.Confidence == "exact") {
+		if !suggestionMatchesAcceptFilter(row.Confidence, confidence) {
 			continue
 		}
 		if err := h.acceptSuggestion(ctx, wsID, db.FromPGUUID(row.ID), userID); err != nil {
@@ -161,6 +161,17 @@ func (h *Handler) reviewDocLinkSuggestion(w http.ResponseWriter, r *http.Request
 }
 
 var errSuggestionNotFound = errors.New("suggestion not found")
+
+func suggestionMatchesAcceptFilter(rowConfidence, filter string) bool {
+	switch filter {
+	case "all", "":
+		return true
+	case "high":
+		return rowConfidence == "high" || rowConfidence == "exact"
+	default:
+		return rowConfidence == filter
+	}
+}
 
 func (h *Handler) acceptSuggestion(ctx context.Context, wsID, sugID, userID uuid.UUID) error {
 	row, err := h.store.GetDocLinkSuggestion(ctx, sqlc.GetDocLinkSuggestionParams{

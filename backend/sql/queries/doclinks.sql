@@ -31,7 +31,7 @@ JOIN collections c ON c.id = r.collection_id
 WHERE s.workspace_id = @workspace_id
   AND s.status = @status
 ORDER BY
-  CASE s.confidence WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+  CASE s.confidence WHEN 'exact' THEN 0 WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
   d.title, r.name;
 
 -- name: ListPendingDocLinkSuggestionsByDoc :many
