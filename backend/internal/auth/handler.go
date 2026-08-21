@@ -13,6 +13,7 @@ import (
 	"github.com/imaanmzr/postchi/backend/internal/db"
 	"github.com/imaanmzr/postchi/backend/internal/db/sqlc"
 	"github.com/imaanmzr/postchi/backend/internal/shared/config"
+	"github.com/imaanmzr/postchi/backend/internal/shared/email"
 	"github.com/imaanmzr/postchi/backend/internal/shared/respond"
 )
 
@@ -20,10 +21,16 @@ type Handler struct {
 	store  *db.Store
 	tokens *Service
 	cfg    *config.Config
+	mailer *email.Sender
 }
 
 func NewHandler(store *db.Store, tokens *Service, cfg *config.Config) *Handler {
-	return &Handler{store: store, tokens: tokens, cfg: cfg}
+	return &Handler{
+		store:  store,
+		tokens: tokens,
+		cfg:    cfg,
+		mailer: email.NewSender(cfg),
+	}
 }
 
 type registerRequest struct {

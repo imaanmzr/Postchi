@@ -83,6 +83,9 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 		r.Post("/auth/login", authH.Login)
 		r.Post("/auth/refresh", authH.Refresh)
 		r.Post("/auth/logout", authH.Logout)
+		r.Post("/auth/forgot-password", authH.ForgotPassword)
+		r.Get("/auth/reset-password/{token}", authH.PreviewResetPassword)
+		r.Post("/auth/reset-password/{token}", authH.ResetPassword)
 
 		r.Get("/invites/{token}", inviteH.Preview)
 		r.Post("/invites/{token}/accept", inviteH.Accept)

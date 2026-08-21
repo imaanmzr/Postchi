@@ -34,6 +34,7 @@ type Config struct {
 	SMTPPass         string
 	SMTPFrom         string
 	InviteTTL                    time.Duration
+	PasswordResetTTL             time.Duration
 	RegistrationAllowedDomains   []string
 }
 
@@ -43,6 +44,7 @@ func Load() (*Config, error) {
 	reqTimeoutSec, _ := strconv.Atoi(getEnv("REQUEST_TIMEOUT_SECONDS", "30"))
 	maxBytes, _ := strconv.ParseInt(getEnv("MAX_RESPONSE_BYTES", "10485760"), 10, 64)
 	inviteHours, _ := strconv.Atoi(getEnv("INVITE_TTL_HOURS", "168"))
+	passwordResetHours, _ := strconv.Atoi(getEnv("PASSWORD_RESET_TTL_HOURS", "1"))
 	smtpPort, _ := strconv.Atoi(getEnv("SMTP_PORT", "587"))
 
 	cfg := &Config{
@@ -69,6 +71,7 @@ func Load() (*Config, error) {
 		SMTPPass:         getEnv("SMTP_PASS", ""),
 		SMTPFrom:         getEnv("SMTP_FROM", "postchi@localhost"),
 		InviteTTL:                  time.Duration(inviteHours) * time.Hour,
+		PasswordResetTTL:             time.Duration(passwordResetHours) * time.Hour,
 		RegistrationAllowedDomains: parseRegistrationDomains(getEnv("REGISTRATION_ALLOWED_EMAIL_DOMAINS", "")),
 	}
 	return cfg, nil

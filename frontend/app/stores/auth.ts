@@ -78,6 +78,18 @@ export const useAuthStore = defineStore('auth', {
         this.persist()
       }
     },
+    async forgotPassword(email: string) {
+      const api = useApi()
+      await api.post<{ message: string }>('/api/auth/forgot-password', { email })
+    },
+    async previewResetPassword(token: string) {
+      const api = useApi()
+      return api.get<{ email: string; expired: boolean }>(`/api/auth/reset-password/${token}`)
+    },
+    async resetPassword(token: string, password: string) {
+      const api = useApi()
+      await api.post<{ status: string }>(`/api/auth/reset-password/${token}`, { password })
+    },
     async refresh() {
       try {
         const config = useRuntimeConfig()

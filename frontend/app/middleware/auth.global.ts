@@ -1,6 +1,6 @@
 import { safeAuthRedirect } from '~/utils/authRedirect'
 
-const publicPaths = ['/login', '/register']
+const publicPaths = ['/login', '/register', '/forgot-password']
 
 export default defineNuxtRouteMiddleware(async (to) => {
   if (import.meta.server) return
@@ -9,6 +9,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const isPublic = publicPaths.includes(to.path)
     || to.path.startsWith('/invite/')
     || to.path.startsWith('/share/')
+    || to.path.startsWith('/reset-password/')
 
   if (isPublic) {
     if (to.path === '/login' || to.path === '/register') {

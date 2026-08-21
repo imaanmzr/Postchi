@@ -42,6 +42,9 @@
             :autocomplete="mode === 'register' ? 'new-password' : 'current-password'"
           />
         </div>
+        <p v-if="mode === 'login'" class="text-right">
+          <NuxtLink to="/forgot-password" class="text-sm accent-link">Forgot password?</NuxtLink>
+        </p>
         <p v-if="error" class="text-sm" style="color: var(--method-delete)">{{ error }}</p>
         <Button type="submit" variant="primary" class="w-full" :disabled="loading">
           {{ loading ? 'Please wait…' : (mode === 'register' ? 'Create account' : 'Sign in') }}

@@ -48,3 +48,26 @@ WHERE workspace_id = @workspace_id AND user_id = @user_id;
 
 -- name: UserExistsByEmail :one
 SELECT EXISTS(SELECT 1 FROM users WHERE email = @email);
+
+-- name: GetUserAuthByEmail :one
+SELECT id, auth_provider
+FROM users
+WHERE email = @email;
+
+-- name: CreatePasswordResetToken :exec
+INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+VALUES (@user_id, @token_hash, @expires_at);
+
+-- name: DeletePasswordResetTokensByUserID :exec
+DELETE FROM password_reset_tokens
+WHERE user_id = @user_id;
+
+-- name: GetPasswordResetTokenByHash :one
+SELECT prt.user_id, prt.expires_at, u.email, u.auth_provider
+FROM password_reset_tokens prt
+JOIN users u ON u.id = prt.user_id
+WHERE prt.token_hash = @token_hash;
+
+-- name: DeletePasswordResetTokenByHash :exec
+DELETE FROM password_reset_tokens
+WHERE token_hash = @token_hash;

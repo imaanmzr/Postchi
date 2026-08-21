@@ -41,3 +41,10 @@ func (s *Sender) SendInvite(to, workspaceName, inviteURL string) error {
 		workspaceName, inviteURL, int(s.cfg.InviteTTL.Hours()))
 	return s.Send(to, subject, body)
 }
+
+func (s *Sender) SendPasswordReset(to, resetURL string) error {
+	subject := "Reset your Postchi password"
+	body := fmt.Sprintf("We received a request to reset your Postchi password.\n\nReset your password:\n%s\n\nThis link expires in %d hour(s).\n\nIf you did not request this, you can ignore this email.\n",
+		resetURL, int(s.cfg.PasswordResetTTL.Hours()))
+	return s.Send(to, subject, body)
+}
