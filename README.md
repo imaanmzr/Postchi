@@ -3,11 +3,11 @@
 </p>
 
 <p align="center">
-  <strong>Self-hosted API client for teams.</strong> Run requests, share collections, sync OpenAPI specs, and collaborate in real time. All on your own infrastructure.
+  <strong>Self-hosted API collaboration platform for teams.</strong> Run requests, share collections, sync OpenAPI specs, link documentation, and collaborate in real time. All on your own infrastructure.
 </p>
 
 <p align="center">
-  Postchi is a multi-user, web-based alternative to Postman and Bruno built for internal teams who want full control over their API tooling, data, and secrets.
+  Postchi brings request building, collection management, OpenAPI and Git sync, and markdown documentation into one workspace — built for teams who want full control over their API tooling, data, and secrets.
 </p>
 
 ![Postchi request builder with JSON tree response viewer](screenshots/scrsht-01.png)

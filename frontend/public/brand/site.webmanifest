@@ -1,7 +1,7 @@
 {
   "name": "Postchi",
   "short_name": "Postchi",
-  "description": "Self-hosted API client.",
+  "description": "Self-hosted API collaboration platform.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

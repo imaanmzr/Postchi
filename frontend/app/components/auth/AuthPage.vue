@@ -7,7 +7,7 @@
       <div class="flex flex-col items-center text-center">
         <h1 class="sr-only">Postchi</h1>
         <PostchiLogo :height="40" aria-hidden="true" />
-        <p class="text-sm mt-3 text-muted">Self-hosted API client</p>
+        <p class="text-sm mt-3 text-muted">Self-hosted API collaboration platform</p>
       </div>
 
       <div class="text-center">

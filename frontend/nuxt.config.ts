@@ -14,10 +14,10 @@ export default defineNuxtConfig({
       title: 'Postchi',
       titleTemplate: '%s · Postchi',
       meta: [
-        { name: 'description', content: 'Self-hosted API client.' },
+        { name: 'description', content: 'Self-hosted API collaboration platform.' },
         { name: 'theme-color', content: '#1a1b26' },
         { property: 'og:title', content: 'Postchi' },
-        { property: 'og:description', content: 'Self-hosted API client.' },
+        { property: 'og:description', content: 'Self-hosted API collaboration platform.' },
         { property: 'og:type', content: 'website' },
         { property: 'og:image', content: '/brand/og-image.png' },
         { name: 'twitter:card', content: 'summary_large_image' },
