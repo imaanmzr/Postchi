@@ -13,7 +13,7 @@
     />
 
     <div class="flex flex-1 overflow-hidden min-h-0">
-      <ResizablePane :initial-width="sidebarWidth" side="right">
+      <ResizablePane :initial-width="sidebarWidth" storage-key="postchi:workspace-sidebar-width" side="right">
         <aside
           class="h-full flex flex-col border-r overflow-hidden ui-panel"
           style="border-color: var(--color-border)"

@@ -32,6 +32,7 @@ const props = withDefaults(defineProps<{
   maxHeight?: number
   side?: 'left' | 'right'
   resizable?: boolean
+  storageKey?: string
 }>(), {
   direction: 'horizontal',
   initialWidth: 256,
@@ -72,6 +73,20 @@ function clamp(next: number) {
   return Math.min(props.maxWidth, Math.max(props.minWidth, next))
 }
 
+function loadPersistedSize() {
+  if (!props.storageKey || !import.meta.client) return
+  const stored = Number(localStorage.getItem(props.storageKey))
+  if (!Number.isFinite(stored)) return
+  size.value = clamp(stored)
+}
+
+function persistSize() {
+  if (!props.storageKey || !import.meta.client) return
+  localStorage.setItem(props.storageKey, String(size.value))
+}
+
+onMounted(loadPersistedSize)
+
 function startResize(e: MouseEvent) {
   e.preventDefault()
   const start = isVertical.value ? e.clientY : e.clientX
@@ -91,6 +106,7 @@ function startResize(e: MouseEvent) {
     document.body.style.cursor = ''
     window.removeEventListener('mousemove', onMove)
     window.removeEventListener('mouseup', onUp)
+    persistSize()
   }
 
   window.addEventListener('mousemove', onMove)

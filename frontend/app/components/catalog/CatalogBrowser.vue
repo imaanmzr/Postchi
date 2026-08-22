@@ -7,20 +7,26 @@
     />
 
     <div class="flex flex-1 min-h-0">
-      <aside
-        class="shrink-0 border-r flex flex-col min-h-0 overflow-hidden"
-        style="width: 300px; border-color: var(--color-border); background: var(--color-surface-1)"
+      <ResizablePane
+        :initial-width="catalogSidebarWidth"
+        storage-key="postchi:catalog-sidebar-width"
+        side="right"
       >
-        <CatalogTree
-          :workspace-id="workspaceId"
-          :tree="tree"
-          :endpoints="filteredEndpoints"
-          :collections="collections"
-          :selected-id="selectedEndpoint?.id"
-          :loading="catalogStore.loading"
-          @select="selectEndpoint"
-        />
-      </aside>
+        <aside
+          class="h-full border-r flex flex-col min-h-0 overflow-hidden"
+          style="border-color: var(--color-border); background: var(--color-surface-1)"
+        >
+          <CatalogTree
+            :workspace-id="workspaceId"
+            :tree="tree"
+            :endpoints="filteredEndpoints"
+            :collections="collections"
+            :selected-id="selectedEndpoint?.id"
+            :loading="catalogStore.loading"
+            @select="selectEndpoint"
+          />
+        </aside>
+      </ResizablePane>
 
       <div class="flex-1 ui-scroll-y p-4 min-w-0">
         <template v-if="selectedEndpoint">
@@ -80,6 +86,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'endpoint-selected': [id: string]
 }>()
+
+const catalogSidebarWidth = 300
 
 const catalogStore = useCatalogStore()
 const colStore = useCollectionsStore()

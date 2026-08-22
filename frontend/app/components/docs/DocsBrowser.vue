@@ -55,6 +55,7 @@
       <ResizablePane
         v-if="viewMode !== 'graph'"
         :initial-width="docsSidebarWidth"
+        storage-key="postchi:docs-sidebar-width"
         side="right"
       >
         <aside
