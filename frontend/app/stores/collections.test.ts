@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { RequestItem } from './collections'
+import type { Collection, RequestItem } from './collections'
+import { mergeCollectionUpdate } from './collections'
 import { extractPlaceholdersFromRequest } from '~/utils/placeholders'
 
 function req(id: string, colId: string, templateId?: string): RequestItem {
@@ -79,5 +80,34 @@ describe('extractPlaceholdersFromRequest', () => {
     })
     expect(names).toContain('host')
     expect(names).toContain('token')
+  })
+})
+
+function collection(name: string): Collection {
+  return {
+    id: 'col-1',
+    workspace_id: 'ws',
+    name,
+    sort_order: 0,
+    description: 'docs',
+    parent_id: 'parent-1',
+  }
+}
+
+describe('mergeCollectionUpdate', () => {
+  it('keeps the existing name when a vars patch returns a blank name', () => {
+    const existing = collection('AldyPay API Collection')
+    const merged = mergeCollectionUpdate(existing, {
+      name: '',
+      variables: { pre_request: [{ enabled: true, name: 'uatBaseUrl', value: 'https://example.com', type: 'string', description: '', secret: false }], post_response: [] },
+    })
+    expect(merged.name).toBe('AldyPay API Collection')
+    expect(merged.variables?.pre_request[0].name).toBe('uatBaseUrl')
+    expect(merged.parent_id).toBe('parent-1')
+  })
+
+  it('applies a real name change', () => {
+    const merged = mergeCollectionUpdate(collection('Old'), { name: 'New' })
+    expect(merged.name).toBe('New')
   })
 })

@@ -2,7 +2,9 @@ package collection
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -113,12 +115,19 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	var req Collection
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	existingRow, err := h.store.GetCollection(r.Context(), db.PGUUID(id))
+	if err != nil {
+		respond.Error(w, http.StatusNotFound, "not found")
+		return
+	}
+	existing := collectionFromGetCollectionRow(existingRow)
+	req, err := applyCollectionPatch(existing, r.Body)
+	if err != nil {
 		respond.Error(w, http.StatusBadRequest, "invalid body")
 		return
 	}
 	vars, headers, authB, presets, proxy, certs, secrets := marshalCollectionFields(req)
+	parentChanged := !parentIDsEqual(existing.ParentID, req.ParentID)
 	var parentID *uuid.UUID
 	if req.ParentID != nil && *req.ParentID != "" {
 		p, err := uuid.Parse(*req.ParentID)
@@ -130,23 +139,25 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 			respond.Error(w, http.StatusBadRequest, "collection cannot be its own parent")
 			return
 		}
-		var wouldCycle bool
-		if err := h.store.Pool.QueryRow(r.Context(), `
-			WITH RECURSIVE ancestors AS (
-				SELECT id, parent_id, ARRAY[id] AS path FROM collections WHERE id = $1
-				UNION ALL
-				SELECT c.id, c.parent_id, a.path || c.id
-				FROM collections c JOIN ancestors a ON c.id = a.parent_id
-				WHERE NOT c.id = ANY(a.path)
-			)
-			SELECT EXISTS (SELECT 1 FROM ancestors WHERE id = $2)
-		`, p, id).Scan(&wouldCycle); err != nil {
-			respond.Error(w, http.StatusInternalServerError, "failed to validate hierarchy")
-			return
-		}
-		if wouldCycle {
-			respond.Error(w, http.StatusBadRequest, "move would create a folder cycle")
-			return
+		if parentChanged {
+			var wouldCycle bool
+			if err := h.store.Pool.QueryRow(r.Context(), `
+				WITH RECURSIVE ancestors AS (
+					SELECT id, parent_id, ARRAY[id] AS path FROM collections WHERE id = $1
+					UNION ALL
+					SELECT c.id, c.parent_id, a.path || c.id
+					FROM collections c JOIN ancestors a ON c.id = a.parent_id
+					WHERE NOT c.id = ANY(a.path)
+				)
+				SELECT EXISTS (SELECT 1 FROM ancestors WHERE id = $2)
+			`, p, id).Scan(&wouldCycle); err != nil {
+				respond.Error(w, http.StatusInternalServerError, "failed to validate hierarchy")
+				return
+			}
+			if wouldCycle {
+				respond.Error(w, http.StatusBadRequest, "move would create a folder cycle")
+				return
+			}
 		}
 		parentID = &p
 	}
@@ -170,8 +181,35 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusInternalServerError, "failed to update")
 		return
 	}
-	req.ID = id.String()
-	respond.JSON(w, http.StatusOK, req)
+	updated, err := h.store.GetCollection(r.Context(), db.PGUUID(id))
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to load collection")
+		return
+	}
+	respond.JSON(w, http.StatusOK, collectionFromGetCollectionRow(updated))
+}
+
+func applyCollectionPatch(existing Collection, body io.Reader) (Collection, error) {
+	patched := existing
+	if err := json.NewDecoder(body).Decode(&patched); err != nil {
+		return Collection{}, err
+	}
+	patched.ID = existing.ID
+	patched.WorkspaceID = existing.WorkspaceID
+	if strings.TrimSpace(patched.Name) == "" {
+		patched.Name = existing.Name
+	}
+	return patched, nil
+}
+
+func parentIDsEqual(a, b *string) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
 }
 
 func marshalCollectionFields(req Collection) ([]byte, []byte, []byte, []byte, []byte, []byte, []byte) {
@@ -410,18 +448,18 @@ func collectionFromFields(
 	preRequestScript, testScript string,
 ) Collection {
 	c := Collection{
-		ID:               db.FromPGUUID(id).String(),
-		WorkspaceID:      db.FromPGUUID(wsID).String(),
-		Name:             name,
-		Description:      description,
-		SortOrder:        int(sortOrder),
-		Variables:        domain.ParseVariablesSpec(vars),
-		Presets:          presets,
-		Proxy:            proxy,
+		ID:                 db.FromPGUUID(id).String(),
+		WorkspaceID:        db.FromPGUUID(wsID).String(),
+		Name:               name,
+		Description:        description,
+		SortOrder:          int(sortOrder),
+		Variables:          domain.ParseVariablesSpec(vars),
+		Presets:            presets,
+		Proxy:              proxy,
 		ClientCertificates: certs,
-		Secrets:          secrets,
-		PreRequestScript: preRequestScript,
-		TestScript:       testScript,
+		Secrets:            secrets,
+		PreRequestScript:   preRequestScript,
+		TestScript:         testScript,
 	}
 	if parentID.Valid {
 		s := db.FromPGUUID(parentID).String()

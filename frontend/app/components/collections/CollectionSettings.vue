@@ -116,9 +116,19 @@ const emit = defineEmits<{ saved: [] }>()
 const colStore = useCollectionsStore()
 const envStore = useEnvironmentsStore()
 const wsStore = useWorkspaceStore()
+const tabsStore = useTabsStore()
+
+function collectionDraft(c: Collection) {
+  const tab = tabsStore.openTabs.find(t => t.key === `collection:${c.id}`)
+  return {
+    ...c,
+    name: c.name || tab?.label || c.name,
+    auth: c.auth || { type: 'inherit' },
+  }
+}
 
 const activeTab = ref(props.initialTab || 'overview')
-const local = ref({ ...props.collection, auth: props.collection.auth || { type: 'inherit' } })
+const local = ref(collectionDraft(props.collection))
 const vars = ref<VariablesSpec>(props.collection.variables || { pre_request: [], post_response: [] })
 const headerRows = ref<KVRow[]>(
   (props.collection.headers || []).map(h => ({ key: h.key, value: h.value, enabled: h.enabled })),
@@ -129,7 +139,7 @@ watch(() => props.initialTab, (tab) => {
 })
 
 watch(() => props.collection, (c) => {
-  local.value = { ...c, auth: c.auth || { type: 'inherit' } }
+  local.value = collectionDraft(c)
   vars.value = c.variables || { pre_request: [], post_response: [] }
   headerRows.value = (c.headers || []).map(h => ({ key: h.key, value: h.value, enabled: h.enabled }))
 }, { deep: true })
@@ -187,28 +197,32 @@ async function saveOverview() {
   emit('saved')
 }
 
+function patchPayload(data: Partial<Collection>): Partial<Collection> {
+  return local.value.name ? { name: local.value.name, ...data } : data
+}
+
 async function saveHeaders() {
-  await colStore.updateCollection(local.value.id, {
+  await colStore.updateCollection(local.value.id, patchPayload({
     headers: headerRows.value.filter(r => r.key).map(r => ({ key: r.key, value: r.value, enabled: r.enabled })),
-  })
+  }))
   emit('saved')
 }
 
 async function saveVars() {
-  await colStore.updateCollection(local.value.id, { variables: vars.value })
+  await colStore.updateCollection(local.value.id, patchPayload({ variables: vars.value }))
   emit('saved')
 }
 
 async function saveAuth() {
-  await colStore.updateCollection(local.value.id, { auth: local.value.auth })
+  await colStore.updateCollection(local.value.id, patchPayload({ auth: local.value.auth }))
   emit('saved')
 }
 
 async function saveScripts() {
-  await colStore.updateCollection(local.value.id, {
+  await colStore.updateCollection(local.value.id, patchPayload({
     pre_request_script: local.value.pre_request_script,
     test_script: local.value.test_script,
-  })
+  }))
   emit('saved')
 }
 

@@ -115,8 +115,11 @@ export const useCollectionsStore = defineStore('collections', {
       const api = useApi()
       const col = await api.patch<Collection>(`/api/collections/${id}`, data)
       const i = this.collections.findIndex(c => c.id === id)
-      if (i >= 0) this.collections[i] = { ...this.collections[i], ...col }
-      if (this.activeCollection?.id === id) this.activeCollection = { ...this.activeCollection, ...col }
+      const current = i >= 0 ? this.collections[i] : undefined
+      if (current) this.collections[i] = mergeCollectionUpdate(current, col)
+      if (this.activeCollection?.id === id) {
+        this.activeCollection = mergeCollectionUpdate(this.activeCollection, col)
+      }
       return col
     },
     async deleteCollection(id: string) {
@@ -255,6 +258,12 @@ function buildTree(collections: Collection[]): TreeNode[] {
   }
   sortNodes(roots)
   return roots
+}
+
+export function mergeCollectionUpdate(existing: Collection, patch: Partial<Collection>): Collection {
+  const merged = { ...existing, ...patch }
+  if (!patch.name) merged.name = existing.name
+  return merged
 }
 
 export { buildTree }
