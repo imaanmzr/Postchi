@@ -1,6 +1,6 @@
-# Postchi v1.0 — Self-Hosted API Collaboration Platform
+# Postchi v1.0: Self-Hosted API Collaboration Platform
 
-The first release of **Postchi** — a self-hosted API collaboration platform for teams. Run requests, share collections, sync OpenAPI specs and Bruno collections from Git, link markdown documentation to your API surface, and collaborate in real time. All on your own infrastructure.
+The first release of **Postchi**, a self-hosted API collaboration platform for teams. Run requests, share collections, sync OpenAPI specs and Bruno collections from Git, link markdown documentation to your API surface, and collaborate in real time. All on your own infrastructure.
 
 ---
 
@@ -11,11 +11,11 @@ The first release of **Postchi** — a self-hosted API collaboration platform fo
 - Multi-user workspaces with **viewer**, **editor**, and **owner** roles
 - **Real-time collaboration** over WebSocket when teammates edit the same workspace
 - **Activity feed** per workspace
-- **Team onboarding** — add registered users immediately; invite others via copyable link or optional email (SMTP)
-- **Registration domain allowlist** — optional `REGISTRATION_ALLOWED_EMAIL_DOMAINS` for internal-only signup
-- **Change password** — authenticated users can rotate credentials; other sessions are revoked
+- **Team onboarding**: add registered users immediately; invite others via copyable link or optional email (SMTP)
+- **Registration domain allowlist**: optional `REGISTRATION_ALLOWED_EMAIL_DOMAINS` for internal-only signup
+- **Change password**: authenticated users can rotate credentials; other sessions are revoked
 - **Share links** for read-only access or one-click import into another workspace
-- **Catalog share links** — read-only snapshots of the API catalog and linked documentation
+- **Catalog share links**: read-only snapshots of the API catalog and linked documentation
 
 ### Request builder & execution
 
@@ -23,7 +23,7 @@ The first release of **Postchi** — a self-hosted API collaboration platform fo
 - Body modes: raw (JSON/XML/text), **GraphQL**, **form-data** (with file uploads), and URL-encoded
 - Auth types: none, Basic, Bearer token, API key (header or query), and inherit from parent
 - Per-request settings: timeout, follow redirects, SSL verification
-- **Template / variant model** — define a template request and spawn variants with field-level inheritance, reset, and push-to-children
+- **Template / variant model**: define a template request and spawn variants with field-level inheritance, reset, and push-to-children
 - Drag-and-drop reordering in the request tree
 - Variable autocomplete with `{{variable}}` interpolation; built-in `$timestamp` and `$isoTimestamp`
 - Send requests with detailed **timing breakdown** (DNS, connect, TLS, TTFB, download)
@@ -45,32 +45,32 @@ The first release of **Postchi** — a self-hosted API collaboration platform fo
 - Connect OpenAPI 3 specs by URL
 - Sync operations into collections with diff view (added, updated, removed)
 - Per-environment base URL mapping; track source operation IDs for incremental updates
-- **CI spec push** — workspace API tokens with `spec:push` scope for pipelines (`POST /api/workspaces/:id/api-specs/push`)
+- **CI spec push**: workspace API tokens with `spec:push` scope for pipelines (`POST /api/workspaces/:id/api-specs/push`)
 
 ### Bruno & Git collection sync
 
-- **Persistent Bruno Git sources** — sync `.bru` files from GitHub or GitLab on demand
+- **Persistent Bruno Git sources**: sync `.bru` files from GitHub or GitLab on demand
 - **One-shot Git import** for Bruno and OpenCollection trees (no persistent source required)
 - **Incremental sync** with added/updated/removed request reporting
 - Configurable branch, path prefix, and private-repo access tokens
 - **Operation ID backfill** for legacy Bruno imports (canonical `method-/path` IDs for doc linking)
-- **Import into parent collection** — choose a target folder when importing collections
+- **Import into parent collection**: choose a target folder when importing collections
 
 ### Documentation linking
 
 - **Markdown documentation workspace** with tree navigation, live preview, split edit, and link graph
 - **GitHub & GitLab sync** for markdown repos (public or private with PAT)
 - **Unified docs bundle** per request: OpenAPI `api_doc`, team notes, frontmatter-linked pages, and manual doc links
-- **Bidirectional linking** — attach doc pages from a request, or link requests from a doc page
-- **In-request preview** — compact linked-doc cards with preview modal and **Open doc** shortcut
-- **API catalog** — browse all endpoints with documentation coverage; edit docs without opening the full builder
+- **Bidirectional linking**: attach doc pages from a request, or link requests from a doc page
+- **In-request preview**: compact linked-doc cards with preview modal and **Open doc** shortcut
+- **API catalog**: browse all endpoints with documentation coverage; edit docs without opening the full builder
 - **Deterministic auto-linking** on git doc sync:
   - Exact name match (`get-user` request ↔ `get-user.md`) when unique
-  - Frontmatter `request` / `requests` — declare request names in doc YAML for explicit auto-links
-  - Frontmatter `operations` — auto-link pages to matching OpenAPI/Bruno operations
+  - Frontmatter `request` / `requests`: declare request names in doc YAML for explicit auto-links
+  - Frontmatter `operations`: auto-link pages to matching OpenAPI/Bruno operations
   - Configurable **path template** per doc source (e.g. `docs/{collection_slug}/{request_slug}.md`)
   - Optional **API collection** scope on doc sources to avoid cross-collection collisions
-- **Smart suggestions** — tightened fuzzy heuristics limited to suggestions only; accept/reject in panel with bulk accept for high-confidence matches
+- **Smart suggestions**: tightened fuzzy heuristics limited to suggestions only; accept/reject in panel with bulk accept for high-confidence matches
 
 ### Collections & catalog
 
@@ -83,11 +83,11 @@ The first release of **Postchi** — a self-hosted API collaboration platform fo
 |--------|:------:|:------:|
 | Postman Collection v2.1 | ✓ | ✓ |
 | Bruno (ZIP) | ✓ | ✓ |
-| Bruno (Git sync) | ✓ | — |
-| OpenAPI 3 | ✓ | — |
-| OpenCollection | ✓ | — |
-| OpenCollection / Bruno (Git one-shot) | ✓ | — |
-| cURL | ✓ | — |
+| Bruno (Git sync) | ✓ | - |
+| OpenAPI 3 | ✓ | - |
+| OpenCollection | ✓ | - |
+| OpenCollection / Bruno (Git one-shot) | ✓ | - |
+| cURL | ✓ | - |
 
 ### UI & theming
 
@@ -135,10 +135,10 @@ Set these before deploying:
 
 Optional but recommended:
 
-- `PUBLIC_APP_URL` / `APP_PUBLIC_URL` — base URL for invite and share links
-- `CORS_ORIGINS` — browser origins allowed to call the API
-- `REGISTRATION_ALLOWED_EMAIL_DOMAINS` — restrict self-registration to specific email domains
-- SMTP settings — for sending invite emails (copyable invite links work without SMTP)
+- `PUBLIC_APP_URL` / `APP_PUBLIC_URL`: base URL for invite and share links
+- `CORS_ORIGINS`: browser origins allowed to call the API
+- `REGISTRATION_ALLOWED_EMAIL_DOMAINS`: restrict self-registration to specific email domains
+- SMTP settings for sending invite emails (copyable invite links work without SMTP)
 
 See the [README](../README.md) for installation, configuration, and deployment instructions.
 
@@ -157,6 +157,6 @@ See the [README](../README.md) for installation, configuration, and deployment i
 
 ## Documentation
 
-- [README](../README.md) — installation, configuration, and deployment
+- [README](../README.md), installation, configuration, and deployment
 - [Documentation linking](documentation-linking.md)
 - [Team members & invites](team-members.md)

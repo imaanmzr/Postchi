@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  Postchi brings request building, collection management, OpenAPI and Git sync, and markdown documentation into one workspace — built for teams who want full control over their API tooling, data, and secrets.
+  Postchi brings request building, collection management, OpenAPI and Git sync, and markdown documentation into one workspace, built for teams who want full control over their API tooling, data, and secrets.
 </p>
 
 ![Postchi request builder with JSON tree response viewer](screenshots/scrsht-01.png)
