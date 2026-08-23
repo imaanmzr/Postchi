@@ -62,8 +62,12 @@
             {{ backfilling ? 'Backfilling…' : 'Backfill API operation IDs' }}
           </Button>
         </div>
+        <IndeterminateProgressBar
+          v-if="creating"
+          label="Adding git source…"
+        />
         <p v-if="linkAnalyzeMessage" class="text-xs text-muted">{{ linkAnalyzeMessage }}</p>
-        <p v-if="syncMessage" class="text-xs text-muted">{{ syncMessage }}</p>
+        <p v-if="syncMessage" class="text-xs" style="color: var(--method-get)">{{ syncMessage }}</p>
         <p v-if="syncError" class="text-xs text-red-400">{{ syncError }}</p>
       </div>
 
@@ -93,6 +97,18 @@
               <span v-if="src.config?.path_prefix"> · folder <code>{{ src.config.path_prefix }}</code></span>
               <span v-if="src.config?.link_template"> · template <code>{{ src.config.link_template }}</code></span>
             </div>
+            <IndeterminateProgressBar
+              v-if="syncing === src.id"
+              class="mt-2"
+              label="Syncing documentation from repository…"
+            />
+            <p
+              v-if="syncSuccessBySource[src.id]"
+              class="text-xs mt-2"
+              style="color: var(--method-get)"
+            >
+              {{ syncSuccessBySource[src.id] }}
+            </p>
           </div>
           <div class="flex gap-2 shrink-0">
             <Button class="text-xs" @click="toggleEdit(src)">
@@ -205,6 +221,15 @@ interface DocSource {
 const props = defineProps<{ workspaceId: string }>()
 const api = useApi()
 const colStore = useCollectionsStore()
+const toast = useToast()
+
+interface DocSyncResult {
+  synced?: number
+  total?: number
+  capped?: number
+  errors?: number
+  auto_linked?: number
+}
 
 const workspaceCollections = computed(() =>
   colStore.collections.filter(c => c.workspace_id === props.workspaceId),
@@ -221,6 +246,7 @@ const deleteOpen = ref(false)
 const deleteTarget = ref<DocSource | null>(null)
 const syncError = ref('')
 const syncMessage = ref('')
+const syncSuccessBySource = ref<Record<string, string>>({})
 const linkAnalyzeMessage = ref('')
 const analyzingLinks = ref(false)
 const backfilling = ref(false)
@@ -263,6 +289,31 @@ async function load() {
   tokens.value = await api.get(`/api/workspaces/${props.workspaceId}/api-tokens`)
 }
 
+async function refreshAfterSync() {
+  try {
+    await load()
+  } catch {
+    // Sync already succeeded; keep the success message even if UI refresh fails.
+  }
+}
+
+function formatDocSyncResult(result: DocSyncResult) {
+  if (result.synced == null) return 'Already up to date'
+  const parts = [`${result.synced} doc(s) synced`]
+  if (result.total != null) parts.push(`of ${result.total} found`)
+  if (result.capped) parts.push(`${result.capped} skipped (over limit)`)
+  if (result.errors) parts.push(`${result.errors} errors`)
+  if (result.auto_linked) parts.push(`${result.auto_linked} auto-linked`)
+  return parts.join(', ')
+}
+
+function showSyncSuccess(sourceId: string, sourceName: string, result: DocSyncResult) {
+  const message = `Sync complete for "${sourceName}": ${formatDocSyncResult(result)}`
+  syncSuccessBySource.value = { [sourceId]: message }
+  syncMessage.value = message
+  toast.show(message, 'success', 5000)
+}
+
 function detectedProvider(repoUrl: string): string {
   return detectedGitProvider(repoUrl)
 }
@@ -302,16 +353,24 @@ async function confirmDeleteSource() {
 
 async function createGitSource() {
   creating.value = true
+  syncError.value = ''
+  syncMessage.value = ''
   try {
+    const sourceName = gitForm.value.name.trim()
     await api.post(`/api/workspaces/${props.workspaceId}/doc-sources`, {
-      name: gitForm.value.name,
+      name: sourceName,
       source_type: 'git',
       collection_id: gitForm.value.collection_id || undefined,
       config: gitRepoConfigPayload(gitForm.value),
       access_token: gitForm.value.access_token || undefined,
     })
     gitForm.value.access_token = ''
+    const message = `Added "${sourceName}". Click Sync now to import documentation.`
+    syncMessage.value = message
+    toast.show(message, 'success', 5000)
     await load()
+  } catch (e) {
+    syncError.value = e instanceof Error ? e.message : 'Failed to add git source'
   } finally {
     creating.value = false
   }
@@ -354,29 +413,23 @@ async function updateSource(id: string) {
 }
 
 async function syncSource(id: string) {
+  const source = sources.value.find(s => s.id === id)
   syncing.value = id
   syncError.value = ''
   syncMessage.value = ''
+  syncSuccessBySource.value = {}
   linkAnalyzeMessage.value = ''
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 330_000)
   try {
-    const result = await api.post<{ synced?: number, total?: number, capped?: number, errors?: number, auto_linked?: number }>(`/api/doc-sources/${id}/sync`, undefined, {
+    const result = await api.post<DocSyncResult>(`/api/doc-sources/${id}/sync`, undefined, {
       signal: controller.signal,
     })
-    if (result?.synced != null) {
-      syncError.value = ''
-      const parts = [`Synced ${result.synced} doc(s)`]
-      if (result.total != null) parts.push(`of ${result.total} found`)
-      if (result.capped) parts.push(`(${result.capped} skipped - over limit)`)
-      if (result.errors) parts.push(`(${result.errors} errors)`)
-      if (result.auto_linked) parts.push(`${result.auto_linked} auto-linked`)
-      syncMessage.value = parts.join(' ')
-    }
+    showSyncSuccess(id, source?.name || 'source', result)
     if (analyzeAfterSync.value) {
       await analyzeDocLinks()
     }
-    await load()
+    await refreshAfterSync()
   } catch (e) {
     if (e instanceof Error && e.name === 'AbortError') {
       syncError.value = 'Sync timed out - try a narrower path prefix (e.g. docs) or fewer files'

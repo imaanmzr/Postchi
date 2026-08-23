@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { apiUrl } from '~/utils/apiBase'
+import { isAccessTokenExpired } from '~/utils/jwt'
 
 interface User {
   id: string
@@ -8,6 +9,7 @@ interface User {
 }
 
 let ensureSessionPromise: Promise<boolean> | null = null
+let refreshPromise: Promise<boolean> | null = null
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -91,6 +93,18 @@ export const useAuthStore = defineStore('auth', {
       await api.post<{ status: string }>(`/api/auth/reset-password/${token}`, { password })
     },
     async refresh() {
+      if (refreshPromise) return refreshPromise
+
+      refreshPromise = this.performRefresh()
+      try {
+        return await refreshPromise
+      } finally {
+        refreshPromise = null
+      }
+    },
+    async performRefresh() {
+      if (!this.refreshToken) return false
+
       try {
         const config = useRuntimeConfig()
         const res = await fetch(apiUrl(config.public.apiUrl as string, '/api/auth/refresh'), {
@@ -109,6 +123,12 @@ export const useAuthStore = defineStore('auth', {
       } catch {
         return false
       }
+    },
+    async ensureAccessTokenFresh(skewSeconds = 30) {
+      if (!this.accessToken) return false
+      if (!isAccessTokenExpired(this.accessToken, skewSeconds)) return true
+      if (!this.refreshToken) return false
+      return this.refresh()
     },
     async ensureSession(): Promise<boolean> {
       if (import.meta.server) return false

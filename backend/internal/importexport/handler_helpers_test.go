@@ -27,7 +27,7 @@ func TestWriteGitImportErrorMapping(t *testing.T) {
 		status int
 	}{
 		{err: &gitrepo.Error{Kind: gitrepo.ErrorInvalid}, status: http.StatusBadRequest},
-		{err: &gitrepo.Error{Kind: gitrepo.ErrorAuthentication}, status: http.StatusUnauthorized},
+		{err: &gitrepo.Error{Kind: gitrepo.ErrorAuthentication}, status: http.StatusForbidden},
 		{err: &gitrepo.Error{Kind: gitrepo.ErrorRateLimited}, status: http.StatusTooManyRequests},
 		{err: &gitrepo.Error{Kind: gitrepo.ErrorTimeout}, status: http.StatusGatewayTimeout},
 		{err: &gitrepo.Error{Kind: gitrepo.ErrorLimit}, status: http.StatusRequestEntityTooLarge},

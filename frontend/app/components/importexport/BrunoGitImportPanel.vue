@@ -38,7 +38,10 @@
       </Button>
     </div>
 
-    <p v-if="progress" class="text-xs text-muted">{{ progress }}</p>
+    <IndeterminateProgressBar
+      v-if="creating"
+      :label="progress || 'Connecting to the repository and running the first sync…'"
+    />
     <p v-if="error" class="text-xs text-red-400">{{ error }}</p>
     <p v-if="success" class="text-xs" style="color: var(--method-get)">{{ success }}</p>
 
@@ -70,6 +73,18 @@
           <div v-if="src.last_synced_at" class="text-xs text-muted">
             Last synced {{ formatSyncedAt(src.last_synced_at) }}
           </div>
+          <IndeterminateProgressBar
+            v-if="syncing === src.id"
+            class="mt-2"
+            label="Syncing collections from repository…"
+          />
+          <p
+            v-if="syncSuccessBySource[src.id]"
+            class="text-xs mt-2"
+            style="color: var(--method-get)"
+          >
+            {{ syncSuccessBySource[src.id] }}
+          </p>
         </div>
         <div class="flex gap-2 shrink-0 flex-wrap justify-end">
           <Button class="text-xs" @click="toggleEdit(src)">
@@ -157,6 +172,7 @@ const props = defineProps<{ workspaceId: string }>()
 
 const api = useApi()
 const colStore = useCollectionsStore()
+const toast = useToast()
 
 const sources = ref<BrunoSource[]>([])
 const creating = ref(false)
@@ -169,6 +185,7 @@ const editingId = ref('')
 const progress = ref('')
 const error = ref('')
 const success = ref('')
+const syncSuccessBySource = ref<Record<string, string>>({})
 
 const form = ref({
   name: 'Imported Bruno',
@@ -248,6 +265,22 @@ async function refreshCollections() {
   await colStore.fetchAllRequests(props.workspaceId)
 }
 
+async function refreshAfterSync() {
+  try {
+    await loadSources()
+    await refreshCollections()
+  } catch {
+    // Sync already succeeded; keep the success message even if UI refresh fails.
+  }
+}
+
+function showSyncSuccess(sourceId: string, sourceName: string, result: BrunoSyncResult) {
+  const message = `Sync complete for "${sourceName}": ${formatSyncResult(result)}`
+  syncSuccessBySource.value = { [sourceId]: message }
+  success.value = message
+  toast.show(message, 'success', 5000)
+}
+
 async function createSource() {
   creating.value = true
   error.value = ''
@@ -270,10 +303,10 @@ async function createSource() {
       { signal: controller.signal },
     )
     success.value = `Connected "${result.source.name}". ${formatSyncResult(result.sync)}`
+    toast.show(success.value, 'success', 5000)
     form.value.access_token = ''
     progress.value = ''
-    await loadSources()
-    await refreshCollections()
+    await refreshAfterSync()
   } catch (e) {
     progress.value = ''
     if (e instanceof Error && e.name === 'AbortError') {
@@ -288,14 +321,15 @@ async function createSource() {
 }
 
 async function syncSource(sourceId: string) {
+  const source = sources.value.find(s => s.id === sourceId)
   syncing.value = sourceId
   error.value = ''
   success.value = ''
+  syncSuccessBySource.value = {}
   try {
     const result = await api.post<BrunoSyncResult>(`/api/bruno-sources/${sourceId}/sync`, {})
-    success.value = formatSyncResult(result)
-    await loadSources()
-    await refreshCollections()
+    showSyncSuccess(sourceId, source?.name || 'source', result)
+    await refreshAfterSync()
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Sync failed'
   } finally {

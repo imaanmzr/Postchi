@@ -47,10 +47,7 @@ func writeGitImportError(w http.ResponseWriter, err error) {
 	case gitrepo.ErrorInvalid:
 		status = http.StatusBadRequest
 	case gitrepo.ErrorAuthentication:
-		status = http.StatusUnauthorized
-		if repoError != nil && repoError.Status == http.StatusForbidden {
-			status = http.StatusForbidden
-		}
+		status = http.StatusForbidden
 	case gitrepo.ErrorNotFound:
 		status = http.StatusUnprocessableEntity
 		if repoError != nil && repoError.Status == http.StatusNotFound {

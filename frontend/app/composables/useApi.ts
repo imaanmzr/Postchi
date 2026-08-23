@@ -1,4 +1,5 @@
 import { apiUrl } from '~/utils/apiBase'
+import { retryOnUnauthorized, shouldLogoutOnUnauthorized } from '~/utils/apiSession'
 
 function isPublicAuthPath(path: string) {
   return path.startsWith('/api/auth/login')
@@ -28,6 +29,12 @@ export function useApi() {
     throw new Error(err.error || 'Session expired. Please sign in again.')
   }
 
+  function applyAuthHeader(headers: Record<string, string>) {
+    if (auth.accessToken) {
+      headers.Authorization = `Bearer ${auth.accessToken}`
+    }
+  }
+
   async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -37,17 +44,29 @@ export function useApi() {
       headers.Authorization = `Bearer ${auth.accessToken}`
     }
 
-    let res = await fetch(base(path), { ...options, headers })
-
-    if (res.status === 401 && auth.refreshToken && !isPublicAuthPath(path)) {
-      const refreshed = await auth.refresh()
-      if (refreshed) {
+    if (!isPublicAuthPath(path)) {
+      await auth.ensureAccessTokenFresh()
+      if (auth.accessToken) {
         headers.Authorization = `Bearer ${auth.accessToken}`
-        res = await fetch(base(path), { ...options, headers, signal: options.signal })
       }
     }
 
+    const { response: res, refreshSucceeded } = await retryOnUnauthorized(
+      () => {
+        applyAuthHeader(headers)
+        return fetch(base(path), { ...options, headers })
+      },
+      async () => {
+        if (!auth.refreshToken || isPublicAuthPath(path)) return false
+        return auth.refresh()
+      },
+    )
+
     if (res.status === 401 && !isPublicAuthPath(path)) {
+      if (!shouldLogoutOnUnauthorized(refreshSucceeded)) {
+        const err = await res.json().catch(() => ({ error: 'Request failed' }))
+        throw new Error(err.error || 'Request failed')
+      }
       return handleUnauthorized(path, res)
     }
 
@@ -62,17 +81,20 @@ export function useApi() {
   async function upload<T>(path: string, formData: FormData): Promise<T> {
     const headers: Record<string, string> = {}
     if (auth.accessToken) headers.Authorization = `Bearer ${auth.accessToken}`
-    let res = await fetch(base(path), { method: 'POST', headers, body: formData })
 
-    if (res.status === 401 && auth.refreshToken) {
-      const refreshed = await auth.refresh()
-      if (refreshed) {
-        headers.Authorization = `Bearer ${auth.accessToken}`
-        res = await fetch(base(path), { method: 'POST', headers, body: formData })
-      }
-    }
+    const { response: res, refreshSucceeded } = await retryOnUnauthorized(
+      () => {
+        applyAuthHeader(headers)
+        return fetch(base(path), { method: 'POST', headers, body: formData })
+      },
+      async () => !!auth.refreshToken && auth.refresh(),
+    )
 
     if (res.status === 401) {
+      if (!shouldLogoutOnUnauthorized(refreshSucceeded)) {
+        const err = await res.json().catch(() => ({ error: 'Upload failed' }))
+        throw new Error(err.error || 'Upload failed')
+      }
       return handleUnauthorized(path, res)
     }
 
@@ -86,17 +108,19 @@ export function useApi() {
   async function download(path: string, filename: string) {
     const headers: Record<string, string> = {}
     if (auth.accessToken) headers.Authorization = `Bearer ${auth.accessToken}`
-    let res = await fetch(base(path), { headers })
 
-    if (res.status === 401 && auth.refreshToken) {
-      const refreshed = await auth.refresh()
-      if (refreshed) {
-        headers.Authorization = `Bearer ${auth.accessToken}`
-        res = await fetch(base(path), { headers })
-      }
-    }
+    const { response: res, refreshSucceeded } = await retryOnUnauthorized(
+      () => {
+        applyAuthHeader(headers)
+        return fetch(base(path), { headers })
+      },
+      async () => !!auth.refreshToken && auth.refresh(),
+    )
 
     if (res.status === 401) {
+      if (!shouldLogoutOnUnauthorized(refreshSucceeded)) {
+        throw new Error('Download failed')
+      }
       await handleUnauthorized(path, res)
       return
     }
@@ -114,14 +138,15 @@ export function useApi() {
   async function fetchText(path: string): Promise<string> {
     const headers: Record<string, string> = {}
     if (auth.accessToken) headers.Authorization = `Bearer ${auth.accessToken}`
-    let res = await fetch(base(path), { headers })
-    if (res.status === 401 && auth.refreshToken) {
-      const refreshed = await auth.refresh()
-      if (refreshed) {
-        headers.Authorization = `Bearer ${auth.accessToken}`
-        res = await fetch(base(path), { headers })
-      }
-    }
+
+    const { response: res } = await retryOnUnauthorized(
+      () => {
+        applyAuthHeader(headers)
+        return fetch(base(path), { headers })
+      },
+      async () => !!auth.refreshToken && auth.refresh(),
+    )
+
     if (!res.ok) throw new Error('Request failed')
     return res.text()
   }
@@ -139,7 +164,24 @@ export function useApi() {
       const headers: Record<string, string> = {}
       if (contentType) headers['Content-Type'] = contentType
       if (auth.accessToken) headers.Authorization = `Bearer ${auth.accessToken}`
-      const res = await fetch(base(path), { method: 'POST', headers, body })
+      await auth.ensureAccessTokenFresh()
+      if (auth.accessToken) headers.Authorization = `Bearer ${auth.accessToken}`
+
+      const { response: res, refreshSucceeded } = await retryOnUnauthorized(
+        () => {
+          applyAuthHeader(headers)
+          return fetch(base(path), { method: 'POST', headers, body })
+        },
+        async () => !!auth.refreshToken && auth.refresh(),
+      )
+
+      if (res.status === 401) {
+        if (!shouldLogoutOnUnauthorized(refreshSucceeded)) {
+          const err = await res.json().catch(() => ({ error: 'Upload failed' }))
+          throw new Error(err.error || 'Upload failed')
+        }
+        return handleUnauthorized(path, res)
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }))
         throw new Error(err.error || 'Upload failed')

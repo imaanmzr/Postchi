@@ -15,6 +15,10 @@
         <option v-for="c in collections" :key="c.id" :value="c.id">{{ c.name }}</option>
       </Select>
       <Button variant="primary" :disabled="creating" @click="createSpec">{{ creating ? 'Adding…' : 'Add spec' }}</Button>
+      <IndeterminateProgressBar
+        v-if="creating"
+        label="Fetching OpenAPI spec and importing endpoints…"
+      />
     </div>
 
     <div v-for="spec in apiSpecsStore.specs" :key="spec.id" class="rounded border p-3" style="border-color: var(--border)">
@@ -33,6 +37,18 @@
         <span v-else>{{ spec.spec_url }}</span>
         <span v-if="spec.last_synced_at"> · Last synced {{ formatSynced(spec.last_synced_at) }}</span>
         <span v-else> · Not synced yet</span>
+      </p>
+      <IndeterminateProgressBar
+        v-if="syncingId === spec.id"
+        class="mb-2"
+        :label="syncingLabel(spec.id)"
+      />
+      <p
+        v-if="specSuccessById[spec.id]"
+        class="text-xs mb-2"
+        style="color: var(--method-get)"
+      >
+        {{ specSuccessById[spec.id] }}
       </p>
       <div v-if="spec.source_type === 'upload' || spec.source_type === 'push'" class="mb-2">
         <label class="text-xs block mb-1">Re-upload spec file</label>
@@ -100,15 +116,18 @@ const props = defineProps<{ workspaceId: string }>()
 const apiSpecsStore = useApiSpecsStore()
 const colStore = useCollectionsStore()
 const envStore = useEnvironmentsStore()
+const toast = useToast()
 
 const newSpec = ref({ name: '', spec_url: '', collection_id: '' })
 const creating = ref(false)
 const syncingId = ref('')
+const syncingMode = ref<'sync' | 'reupload'>('sync')
 const urlGrid = ref<Record<string, Record<string, string>>>({})
 const diffModal = ref<SyncDiff | null>(null)
 const pendingSyncId = ref('')
 const errorMessage = ref('')
 const successMessage = ref('')
+const specSuccessById = ref<Record<string, string>>({})
 
 const collections = computed(() => colStore.collections.filter(c => c.workspace_id === props.workspaceId))
 
@@ -126,15 +145,32 @@ function formatSynced(value: string) {
   }
 }
 
+function syncingLabel(specId: string) {
+  if (syncingId.value !== specId) return ''
+  return syncingMode.value === 'reupload'
+    ? 'Re-uploading OpenAPI spec and syncing endpoints…'
+    : 'Syncing endpoints from OpenAPI spec…'
+}
+
 function clearMessages() {
   errorMessage.value = ''
   successMessage.value = ''
 }
 
 async function refreshWorkspaceData() {
-  await colStore.fetchCollections(props.workspaceId)
-  await colStore.fetchAllRequests(props.workspaceId)
-  await apiSpecsStore.list(props.workspaceId)
+  try {
+    await colStore.fetchCollections(props.workspaceId)
+    await colStore.fetchAllRequests(props.workspaceId)
+    await apiSpecsStore.list(props.workspaceId)
+  } catch {
+    // Keep success messaging when only the post-sync refresh fails.
+  }
+}
+
+function showSpecSuccess(specId: string, message: string) {
+  specSuccessById.value = { [specId]: message }
+  successMessage.value = message
+  toast.show(message, 'success', 5000)
 }
 
 function syncSummary(diff: SyncDiff) {
@@ -144,6 +180,8 @@ function syncSummary(diff: SyncDiff) {
 
 async function runSync(id: string, apply: boolean) {
   clearMessages()
+  specSuccessById.value = {}
+  syncingMode.value = 'sync'
   syncingId.value = id
   try {
     const diff = await apiSpecsStore.sync(id, apply)
@@ -152,8 +190,10 @@ async function runSync(id: string, apply: boolean) {
       pendingSyncId.value = id
       return diff
     }
+    const spec = apiSpecsStore.specs.find(s => s.id === id)
+    const message = `Sync complete for "${spec?.name || 'spec'}": ${syncSummary(diff)}`
+    showSpecSuccess(id, message)
     await refreshWorkspaceData()
-    successMessage.value = `Sync complete: ${syncSummary(diff)}`
     return diff
   } catch (e) {
     errorMessage.value = e instanceof Error ? e.message : 'Sync failed'
@@ -173,8 +213,10 @@ async function createSpec() {
       collection_id: newSpec.value.collection_id || undefined,
     })
     newSpec.value = { name: '', spec_url: '', collection_id: '' }
+    const message = 'Spec added and endpoints imported.'
+    successMessage.value = message
+    toast.show(message, 'success', 5000)
     await refreshWorkspaceData()
-    successMessage.value = 'Spec added and endpoints imported.'
   } catch (e) {
     errorMessage.value = e instanceof Error ? e.message : 'Failed to add spec'
   } finally {
@@ -242,12 +284,16 @@ async function reuploadFile(specId: string, event: Event) {
   const file = input.files?.[0]
   if (!file) return
   clearMessages()
+  specSuccessById.value = {}
+  syncingMode.value = 'reupload'
   syncingId.value = specId
   try {
     const text = await file.text()
     const diff = await apiSpecsStore.reupload(specId, text, true)
+    const spec = apiSpecsStore.specs.find(s => s.id === specId)
+    const message = `Re-upload complete for "${spec?.name || 'spec'}": ${syncSummary(diff)}`
+    showSpecSuccess(specId, message)
     await refreshWorkspaceData()
-    successMessage.value = `Re-upload complete: ${syncSummary(diff)}`
   } catch (e) {
     errorMessage.value = e instanceof Error ? e.message : 'Re-upload failed'
   } finally {
