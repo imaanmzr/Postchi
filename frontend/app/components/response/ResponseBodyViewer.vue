@@ -42,12 +42,13 @@
 </template>
 
 <script setup lang="ts">
-import { EditorView, basicSetup } from 'codemirror'
+import { EditorView } from 'codemirror'
 import { EditorState } from '@codemirror/state'
 import { json } from '@codemirror/lang-json'
 import { xml } from '@codemirror/lang-xml'
 import type { Extension } from '@codemirror/state'
-import { editorTheme, editorFillLayout, editorLineWrap, editorSyntax } from '~/utils/codemirror/editorTheme'
+import { editorBasicSetup } from '~/utils/codemirror/editorSetup'
+import { editorFillLayout, editorLineWrap, editorSelectionTheme, editorSyntax, editorTheme } from '~/utils/codemirror/editorTheme'
 import { detectResponseBodyLang, formatResponseBody } from '~/utils/formatResponseBody'
 import { parseResponseJson } from '~/utils/parseResponseJson'
 import { copyToClipboard } from '~/utils/copyToClipboard'
@@ -105,11 +106,12 @@ function createView() {
     state: EditorState.create({
       doc: displayBody.value,
       extensions: [
-        basicSetup,
+        editorBasicSetup,
         editorLineWrap,
         EditorState.readOnly.of(true),
         EditorView.editable.of(false),
         langExt(lang.value),
+        editorSelectionTheme,
         editorTheme,
         editorSyntax,
         editorFillLayout,

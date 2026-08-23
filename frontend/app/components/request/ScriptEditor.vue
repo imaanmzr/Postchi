@@ -7,12 +7,13 @@
 </template>
 
 <script setup lang="ts">
-import { EditorView, basicSetup } from 'codemirror'
+import { EditorView } from 'codemirror'
 import { EditorState } from '@codemirror/state'
 import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
 import { xml } from '@codemirror/lang-xml'
-import { editorTheme, editorLineWrap, editorSyntax } from '~/utils/codemirror/editorTheme'
+import { editorBasicSetup } from '~/utils/codemirror/editorSetup'
+import { editorLineWrap, editorSelectionTheme, editorSyntax, editorTheme } from '~/utils/codemirror/editorTheme'
 import { formatResponseBody } from '~/utils/formatResponseBody'
 
 const model = defineModel<string>({ required: true })
@@ -52,9 +53,10 @@ function createView() {
     state: EditorState.create({
       doc,
       extensions: [
-        basicSetup,
+        editorBasicSetup,
         editorLineWrap,
         langExt(props.lang),
+        editorSelectionTheme,
         editorTheme,
         editorSyntax,
         EditorView.updateListener.of((u) => {

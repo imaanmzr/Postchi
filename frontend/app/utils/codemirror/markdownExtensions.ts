@@ -1,14 +1,14 @@
 import { autocompletion, type CompletionContext } from '@codemirror/autocomplete'
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { javascript } from '@codemirror/lang-javascript'
 import { json } from '@codemirror/lang-json'
-import { LanguageDescription, bracketMatching, foldGutter, indentOnInput } from '@codemirror/language'
-import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
+import { LanguageDescription, indentOnInput } from '@codemirror/language'
+import { closeBracketsKeymap } from '@codemirror/autocomplete'
 import { Prec, type Extension } from '@codemirror/state'
 import { EditorView, keymap, placeholder } from '@codemirror/view'
-import { basicSetup } from 'codemirror'
-import { editorLineWrap, editorSyntax, editorTheme } from '~/utils/codemirror/editorTheme'
+import { editorBasicSetup } from '~/utils/codemirror/editorSetup'
+import { editorLineWrap, editorSelectionTheme, editorSyntax, editorTheme } from '~/utils/codemirror/editorTheme'
 
 export interface MarkdownEditorOptions {
   placeholder?: string
@@ -91,12 +91,8 @@ export function createMarkdownExtensions(options: MarkdownEditorOptions = {}): E
   ])
 
   return [
-    basicSetup,
-    history(),
+    editorBasicSetup,
     editorLineWrap,
-    foldGutter(),
-    bracketMatching(),
-    closeBrackets(),
     indentOnInput(),
     markdown({
       base: markdownLanguage,
@@ -114,6 +110,7 @@ export function createMarkdownExtensions(options: MarkdownEditorOptions = {}): E
         }),
       ],
     }),
+    editorSelectionTheme,
     editorTheme,
     editorSyntax,
     placeholder(options.placeholder ?? 'Write markdown…'),

@@ -2,6 +2,23 @@ import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 
+/**
+ * CodeMirror draws selection in a layer *behind* line content. The active-line
+ * background on `.cm-activeLine` sits on top and hides the selection highlight,
+ * so we only show the active line in the gutter.
+ */
+export const editorSelectionTheme = EditorView.baseTheme({
+  '.cm-line.cm-activeLine': {
+    backgroundColor: 'transparent !important',
+  },
+  '.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
+    background: 'var(--color-editor-selection) !important',
+  },
+  '.cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
+    background: 'var(--color-editor-selection) !important',
+  },
+})
+
 export const editorTheme = EditorView.theme({
   '&': {
     backgroundColor: 'var(--color-editor-bg)',
@@ -30,7 +47,6 @@ export const editorTheme = EditorView.theme({
     color: 'var(--color-text-muted)',
     border: 'none',
   },
-  '.cm-activeLine': { backgroundColor: 'var(--color-editor-active-line)' },
   '.cm-activeLineGutter': { backgroundColor: 'var(--color-editor-active-line)' },
   '.cm-selectionMatch': {
     backgroundColor: 'color-mix(in srgb, var(--color-syntax-string) 22%, transparent)',
@@ -39,9 +55,6 @@ export const editorTheme = EditorView.theme({
     backgroundColor: 'color-mix(in srgb, var(--color-syntax-string) 32%, transparent)',
   },
   '&.cm-focused .cm-cursor': { borderLeftColor: 'var(--color-editor-caret)' },
-  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
-    backgroundColor: 'var(--color-editor-selection) !important',
-  },
 }, { dark: true })
 
 /** Fills a flex parent and enables internal scrolling (docs editor, response viewer). */

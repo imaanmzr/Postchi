@@ -20,6 +20,12 @@
 @import "./themes/kanagawa.css";
 @import "./themes/one-dark.css";
 
+/* Opaque selection mix — transparent values are hidden behind active line text */
+:root,
+[data-theme] {
+  --color-editor-selection: color-mix(in srgb, var(--color-accent) 58%, var(--color-editor-bg));
+}
+
 @theme {
   --color-bg: var(--color-bg);
   --color-surface-1: var(--color-surface-1);

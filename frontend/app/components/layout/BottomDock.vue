@@ -278,16 +278,18 @@ function startResize(e: MouseEvent) {
     emit('resize', clamp(startSize + delta))
   }
 
-  function onUp() {
+  function cleanup() {
     isResizing.value = false
     document.body.style.userSelect = ''
     document.body.style.cursor = ''
     window.removeEventListener('mousemove', onMove)
     window.removeEventListener('mouseup', onUp)
+    window.removeEventListener('blur', cleanup)
   }
 
   window.addEventListener('mousemove', onMove)
   window.addEventListener('mouseup', onUp)
+  window.addEventListener('blur', cleanup)
 }
 </script>
 
