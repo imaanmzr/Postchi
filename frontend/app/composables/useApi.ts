@@ -43,7 +43,7 @@ export function useApi() {
       const refreshed = await auth.refresh()
       if (refreshed) {
         headers.Authorization = `Bearer ${auth.accessToken}`
-        res = await fetch(base(path), { ...options, headers })
+        res = await fetch(base(path), { ...options, headers, signal: options.signal })
       }
     }
 

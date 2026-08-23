@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildClientErrorResponse, normalizeExecutionResult } from './executionResponse'
+import { buildCancelledResponse, buildClientErrorResponse, normalizeExecutionResult } from './executionResponse'
 
 describe('normalizeExecutionResult', () => {
   it('formats backend network errors into a readable body', () => {
@@ -39,5 +39,23 @@ describe('buildClientErrorResponse', () => {
     expect(result.error).toContain('Postchi server')
     expect(result.body).toContain('network_error')
     expect(result.timing.total_ms).toBe(88)
+  })
+
+  it('maps abort errors to a cancelled response', () => {
+    const result = buildClientErrorResponse(new DOMException('Aborted', 'AbortError'), 120)
+
+    expect(result.error).toBe('Request was cancelled.')
+    expect(result.body).toContain('cancelled')
+    expect(result.timing.total_ms).toBe(120)
+  })
+})
+
+describe('buildCancelledResponse', () => {
+  it('returns a structured cancelled response', () => {
+    const result = buildCancelledResponse(250)
+
+    expect(result.status_code).toBe(0)
+    expect(result.error).toBe('Request was cancelled.')
+    expect(result.timing.total_ms).toBe(250)
   })
 })

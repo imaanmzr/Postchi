@@ -6,12 +6,19 @@
       aria-label="Sending request"
     />
     <p class="text-muted font-mono text-xs tabular-nums">{{ elapsedMs }}ms</p>
+    <Button class="text-xs" @click="$emit('cancel')">
+      Cancel request
+    </Button>
   </div>
 </template>
 
 <script setup lang="ts">
 defineProps<{
   elapsedMs: number
+}>()
+
+defineEmits<{
+  cancel: []
 }>()
 </script>
 

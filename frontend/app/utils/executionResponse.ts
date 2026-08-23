@@ -72,7 +72,30 @@ export function normalizeExecutionResult(
   }
 }
 
+export function buildCancelledResponse(elapsedMs: number): ExecutionResponse {
+  const message = 'Request was cancelled.'
+  const body = formatErrorBody(message, 'Request cancelled by user', 'cancelled')
+
+  return {
+    status_code: 0,
+    body,
+    headers: { 'Content-Type': 'application/json' },
+    timing: { total_ms: elapsedMs },
+    body_size: body.length,
+    error: message,
+    test_results: [],
+    console: [],
+  }
+}
+
+function isAbortError(err: unknown) {
+  return (err instanceof DOMException || err instanceof Error) && err.name === 'AbortError'
+}
+
 export function buildClientErrorResponse(err: unknown, elapsedMs: number): ExecutionResponse {
+  if (isAbortError(err)) {
+    return buildCancelledResponse(elapsedMs)
+  }
   const detail = err instanceof Error ? err.message : 'Request failed'
   const isNetwork = isNetworkErrorMessage(detail)
   const message = isNetwork

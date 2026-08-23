@@ -98,6 +98,7 @@
                 <RequestLoadingIndicator
                   v-if="executing"
                   :elapsed-ms="executeElapsedMs"
+                  @cancel="emit('cancel-execute')"
                 />
                 <ResponseViewer
                   v-else-if="response"
@@ -190,6 +191,7 @@ const emit = defineEmits<{
   'toggle-position': []
   resize: [size: number]
   'select-history': [entry: HistoryEntry]
+  'cancel-execute': []
 }>()
 
 const isResizing = ref(false)

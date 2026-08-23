@@ -92,6 +92,7 @@
             @toggle-position="toggleDockPosition"
             @resize="onDockResize"
             @select-history="onHistorySelect"
+            @cancel-execute="cancelExecuteRequest"
           />
         </div>
       </main>
@@ -110,7 +111,7 @@
 <script setup lang="ts">
 import type { HistoryEntry } from '~/stores/history'
 import { historyEntryToResponse } from '~/stores/history'
-import { buildClientErrorResponse, normalizeExecutionResult } from '~/utils/executionResponse'
+import { buildCancelledResponse, buildClientErrorResponse, normalizeExecutionResult } from '~/utils/executionResponse'
 
 type DockPosition = 'bottom' | 'right'
 type SidebarMode = 'collections' | 'history'
@@ -146,6 +147,7 @@ const lastHistoryIdByRequest = ref<Record<string, string>>({})
 const executing = ref(false)
 const executeElapsedMs = ref(0)
 let executeTimer: ReturnType<typeof setInterval> | null = null
+let executeAbort: AbortController | null = null
 
 const response = computed(() => {
   const tab = tabsStore.activeTab
@@ -181,6 +183,7 @@ onUnmounted(() => {
   if (import.meta.client) {
     window.removeEventListener('resize', updateDockMaxSize)
   }
+  executeAbort?.abort()
   stopExecuteTimer()
 })
 
@@ -198,6 +201,10 @@ function stopExecuteTimer() {
     clearInterval(executeTimer)
     executeTimer = null
   }
+}
+
+function cancelExecuteRequest() {
+  executeAbort?.abort()
 }
 
 function onDockResize(size: number) {
@@ -388,6 +395,10 @@ async function saveRequest(req: any) {
 
 async function executeRequest(req: any) {
   const api = useApi()
+  executeAbort?.abort()
+  executeAbort = new AbortController()
+  const { signal } = executeAbort
+
   historyResponse.value = null
   selectedHistoryId.value = null
   executing.value = true
@@ -396,10 +407,14 @@ async function executeRequest(req: any) {
 
   const startedAt = performance.now()
   try {
-    const result = await api.post<{ history_id?: string } & Record<string, unknown>>(`/api/requests/${req.id}/execute`, {
-      environment_id: envStore.activeId,
-      request: req,
-    })
+    const result = await api.post<{ history_id?: string } & Record<string, unknown>>(
+      `/api/requests/${req.id}/execute`,
+      {
+        environment_id: envStore.activeId,
+        request: req,
+      },
+      { signal },
+    )
     const elapsed = Math.round(performance.now() - startedAt)
     const normalized = normalizeExecutionResult(result, elapsed)
     execStore.set(req.id, normalized)
@@ -408,9 +423,15 @@ async function executeRequest(req: any) {
     }
     await histStore.fetch(props.workspaceId)
   } catch (err) {
-    const elapsed = Math.round(performance.now() - startedAt)
-    execStore.set(req.id, buildClientErrorResponse(err, elapsed))
+    if (signal.aborted) {
+      const elapsed = Math.round(performance.now() - startedAt)
+      execStore.set(req.id, buildCancelledResponse(elapsed))
+    } else {
+      const elapsed = Math.round(performance.now() - startedAt)
+      execStore.set(req.id, buildClientErrorResponse(err, elapsed))
+    }
   } finally {
+    executeAbort = null
     executing.value = false
     stopExecuteTimer()
   }
