@@ -95,8 +95,12 @@
           <div class="h-full min-h-0 min-w-0 w-full overflow-hidden">
             <Transition name="dock-tab-fade" mode="out-in">
               <div v-if="activeTab === 'response'" key="response" class="h-full min-h-0 min-w-0 w-full">
+                <RequestLoadingIndicator
+                  v-if="executing"
+                  :elapsed-ms="executeElapsedMs"
+                />
                 <ResponseViewer
-                  v-if="response"
+                  v-else-if="response"
                   class="h-full w-full"
                   :response="response"
                   :workspace-id="workspaceId"
@@ -172,8 +176,12 @@ const props = withDefaults(defineProps<{
   shareKind?: 'request' | 'history'
   shareSourceId?: string
   shareTitle?: string
+  executing?: boolean
+  executeElapsedMs?: number
 }>(), {
   collapsed: false,
+  executing: false,
+  executeElapsedMs: 0,
 })
 
 const emit = defineEmits<{

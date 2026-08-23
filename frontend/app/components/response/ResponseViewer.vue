@@ -4,8 +4,8 @@
       class="flex items-center gap-2 px-3 py-2 border-b text-sm flex-shrink-0 font-mono"
       style="border-color: var(--color-border)"
     >
-      <span :class="statusClass">{{ response.status_code }}</span>
-      <span class="text-muted">{{ response.timing?.total_ms }}ms</span>
+      <span :class="statusClass">{{ statusLabel }}</span>
+      <span class="text-muted">{{ response.timing?.total_ms ?? 0 }}ms</span>
       <span class="text-muted">{{ formatSize(response.body_size) }}</span>
       <div class="flex-1" />
       <ShareButton
@@ -80,7 +80,17 @@ const props = defineProps<{
 const viewTabs = ['Body', 'Headers', 'Tests', 'Console', 'Timing']
 const viewTab = ref('Body')
 
+const statusLabel = computed(() => {
+  if (props.response.error) return 'Error'
+  const c = props.response.status_code
+  if (!c) return 'Error'
+  return String(c)
+})
+
 const statusClass = computed(() => {
+  if (props.response.error || !props.response.status_code) {
+    return 'font-bold text-[var(--method-delete)]'
+  }
   const c = props.response.status_code
   if (c >= 200 && c < 300) return 'font-bold text-[var(--method-get)]'
   if (c >= 400) return 'font-bold text-[var(--method-delete)]'

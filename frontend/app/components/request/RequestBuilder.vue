@@ -31,11 +31,12 @@
         <Button
           variant="primary"
           class="text-xs shrink-0 inline-flex items-center gap-1.5"
-          :disabled="!local.id"
+          :disabled="!local.id || executing"
           @click="$emit('execute', local)"
         >
-          <Send :size="14" :stroke-width="2" aria-hidden="true" />
-          <span>Send</span>
+          <Loader2 v-if="executing" :size="14" :stroke-width="2" class="animate-spin" aria-hidden="true" />
+          <Send v-else :size="14" :stroke-width="2" aria-hidden="true" />
+          <span>{{ executing ? 'Sending…' : 'Send' }}</span>
         </Button>
       </div>
       <div class="flex flex-wrap gap-2 items-center">
@@ -155,7 +156,7 @@
 </template>
 
 <script setup lang="ts">
-import { Code2, GitBranch, Link, Save, Send, Share2 } from 'lucide-vue-next'
+import { Code2, GitBranch, Link, Loader2, Save, Send, Share2 } from 'lucide-vue-next'
 import type { RequestItem } from '~/stores/collections'
 import { inheritSourceLabel, resolveRequestInheritedAuth } from '~/utils/authInheritance'
 import { copyToClipboard } from '~/utils/copyToClipboard'
@@ -165,7 +166,10 @@ const props = withDefaults(defineProps<{
   request: RequestItem
   workspaceId?: string
   initialTab?: string
-}>(), {})
+  executing?: boolean
+}>(), {
+  executing: false,
+})
 
 const emit = defineEmits<{ save: [req: RequestItem]; execute: [req: RequestItem]; dirty: [] }>()
 

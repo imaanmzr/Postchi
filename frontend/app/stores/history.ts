@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { normalizeExecutionResult } from '~/utils/executionResponse'
 
 export interface HistoryEntry {
   id: string
@@ -53,15 +54,10 @@ export const useHistoryStore = defineStore('history', {
 /** Build a ResponseViewer-compatible object from a history entry. */
 export function historyEntryToResponse(entry: HistoryEntry) {
   const resp = entry.response || {}
-  const testResults = entry.test_results ?? resp.test_results
-  const body = typeof resp.body === 'string' ? resp.body : ''
-  return {
+  return normalizeExecutionResult({
+    ...resp,
     status_code: entry.status_code ?? resp.status_code ?? 0,
-    body,
-    headers: resp.headers ?? {},
     timing: resp.timing ?? { total_ms: entry.duration_ms },
-    test_results: testResults,
-    console: resp.console ?? [],
-    body_size: resp.body_size ?? (body ? body.length : 0),
-  }
+    test_results: entry.test_results ?? resp.test_results,
+  })
 }

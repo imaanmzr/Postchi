@@ -49,6 +49,7 @@
                 v-if="activeTab.type === 'request' && activeRequest"
                 :request="activeRequest"
                 :workspace-id="workspaceId"
+                :executing="executing"
                 @save="saveRequest"
                 @execute="executeRequest"
                 @dirty="markDirty"
@@ -84,6 +85,8 @@
             :share-kind="dockShareKind"
             :share-source-id="dockShareSourceId"
             :share-title="dockShareTitle"
+            :executing="executing"
+            :execute-elapsed-ms="executeElapsedMs"
             @update:active-tab="dockTab = $event"
             @update:collapsed="dockCollapsed = $event"
             @toggle-position="toggleDockPosition"
@@ -107,6 +110,7 @@
 <script setup lang="ts">
 import type { HistoryEntry } from '~/stores/history'
 import { historyEntryToResponse } from '~/stores/history'
+import { buildClientErrorResponse, normalizeExecutionResult } from '~/utils/executionResponse'
 
 type DockPosition = 'bottom' | 'right'
 type SidebarMode = 'collections' | 'history'
@@ -139,6 +143,9 @@ const dockCollapsed = ref(false)
 const historyResponse = ref<any | null>(null)
 const selectedHistoryId = ref<string | null>(null)
 const lastHistoryIdByRequest = ref<Record<string, string>>({})
+const executing = ref(false)
+const executeElapsedMs = ref(0)
+let executeTimer: ReturnType<typeof setInterval> | null = null
 
 const response = computed(() => {
   const tab = tabsStore.activeTab
@@ -174,7 +181,24 @@ onUnmounted(() => {
   if (import.meta.client) {
     window.removeEventListener('resize', updateDockMaxSize)
   }
+  stopExecuteTimer()
 })
+
+function startExecuteTimer() {
+  const start = performance.now()
+  executeElapsedMs.value = 0
+  stopExecuteTimer()
+  executeTimer = setInterval(() => {
+    executeElapsedMs.value = Math.round(performance.now() - start)
+  }, 50)
+}
+
+function stopExecuteTimer() {
+  if (executeTimer) {
+    clearInterval(executeTimer)
+    executeTimer = null
+  }
+}
 
 function onDockResize(size: number) {
   dockSize.value = size
@@ -366,16 +390,30 @@ async function executeRequest(req: any) {
   const api = useApi()
   historyResponse.value = null
   selectedHistoryId.value = null
-  const result = await api.post<{ history_id?: string } & Record<string, unknown>>(`/api/requests/${req.id}/execute`, {
-    environment_id: envStore.activeId,
-    request: req,
-  })
-  execStore.set(req.id, result)
-  if (result.history_id) {
-    lastHistoryIdByRequest.value = { ...lastHistoryIdByRequest.value, [req.id]: result.history_id }
-  }
-  await histStore.fetch(props.workspaceId)
+  executing.value = true
+  startExecuteTimer()
   openDockTab('response')
+
+  const startedAt = performance.now()
+  try {
+    const result = await api.post<{ history_id?: string } & Record<string, unknown>>(`/api/requests/${req.id}/execute`, {
+      environment_id: envStore.activeId,
+      request: req,
+    })
+    const elapsed = Math.round(performance.now() - startedAt)
+    const normalized = normalizeExecutionResult(result, elapsed)
+    execStore.set(req.id, normalized)
+    if (normalized.history_id) {
+      lastHistoryIdByRequest.value = { ...lastHistoryIdByRequest.value, [req.id]: normalized.history_id }
+    }
+    await histStore.fetch(props.workspaceId)
+  } catch (err) {
+    const elapsed = Math.round(performance.now() - startedAt)
+    execStore.set(req.id, buildClientErrorResponse(err, elapsed))
+  } finally {
+    executing.value = false
+    stopExecuteTimer()
+  }
 }
 
 function markDirty() {
