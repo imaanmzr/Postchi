@@ -387,6 +387,40 @@ func (h *Handler) CreateDoc(w http.ResponseWriter, r *http.Request) {
 	respond.JSON(w, http.StatusCreated, mapWorkspaceDocFromCreateRow(row))
 }
 
+func (h *Handler) DeleteDoc(w http.ResponseWriter, r *http.Request) {
+	wsID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respond.Error(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	slug := chi.URLParam(r, "slug")
+	existing, err := h.store.GetWorkspaceDocBySlug(r.Context(), sqlc.GetWorkspaceDocBySlugParams{
+		WorkspaceID: db.PGUUID(wsID),
+		Slug:        slug,
+	})
+	if err != nil {
+		respond.Error(w, http.StatusNotFound, "not found")
+		return
+	}
+	if !existing.IsLocal {
+		respond.Error(w, http.StatusForbidden, "only local docs can be deleted")
+		return
+	}
+	rows, err := h.store.DeleteLocalWorkspaceDoc(r.Context(), sqlc.DeleteLocalWorkspaceDocParams{
+		WorkspaceID: db.PGUUID(wsID),
+		Slug:        slug,
+	})
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "delete failed")
+		return
+	}
+	if rows == 0 {
+		respond.Error(w, http.StatusNotFound, "not found")
+		return
+	}
+	respond.JSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
 func pathBaseName(p string) string {
 	p = strings.TrimSuffix(p, "/")
 	if i := strings.LastIndex(p, "/"); i >= 0 {

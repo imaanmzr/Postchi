@@ -96,6 +96,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [slug: string]
   'create-local': [folderPath: string]
+  'delete-doc': [doc: DocSummary]
   'reveal-path': [path: string]
 }>()
 
@@ -228,6 +229,13 @@ const contextItems = computed(() => {
         contextMenu.value = null
       },
     })
+    if (row.doc.is_local) {
+      items.push({
+        id: 'delete',
+        label: 'Delete…',
+        action: () => { emit('delete-doc', row.doc!); contextMenu.value = null },
+      })
+    }
   }
   if (row.type === 'folder') {
     items.push({

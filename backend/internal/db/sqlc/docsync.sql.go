@@ -161,6 +161,24 @@ func (q *Queries) DeleteDocSource(ctx context.Context, arg DeleteDocSourceParams
 	return err
 }
 
+const deleteLocalWorkspaceDoc = `-- name: DeleteLocalWorkspaceDoc :execrows
+DELETE FROM workspace_docs
+WHERE workspace_id = $1 AND slug = $2 AND is_local = true
+`
+
+type DeleteLocalWorkspaceDocParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	Slug        string      `json:"slug"`
+}
+
+func (q *Queries) DeleteLocalWorkspaceDoc(ctx context.Context, arg DeleteLocalWorkspaceDocParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteLocalWorkspaceDoc, arg.WorkspaceID, arg.Slug)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteManualDocLink = `-- name: DeleteManualDocLink :exec
 DELETE FROM manual_doc_links m
 USING workspace_docs d

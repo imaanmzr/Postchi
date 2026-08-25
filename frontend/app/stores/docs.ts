@@ -157,6 +157,15 @@ export const useDocsStore = defineStore('docs', {
         this.loadingDoc = this.loadingDocCount > 0
       }
     },
+    async deleteDoc(workspaceId: string, slug: string) {
+      const api = useApi()
+      await api.delete(
+        `/api/workspaces/${workspaceId}/workspace-docs/${encodeURIComponent(slug)}`,
+      )
+      this.summaries = this.summaries.filter(d => d.slug !== slug)
+      this.invalidateCache(slug)
+      this.graph = null
+    },
     async createLocalDoc(workspaceId: string, sourcePath: string, title?: string) {
       const api = useApi()
       const doc = await api.post<WorkspaceDoc>(`/api/workspaces/${workspaceId}/workspace-docs`, {

@@ -111,6 +111,10 @@ SET title = @title,
     updated_at = now()
 WHERE workspace_id = @workspace_id AND slug = @slug;
 
+-- name: DeleteLocalWorkspaceDoc :execrows
+DELETE FROM workspace_docs
+WHERE workspace_id = @workspace_id AND slug = @slug AND is_local = true;
+
 -- name: GetWorkspaceDocByID :one
 SELECT id, workspace_id, slug, title, content_md, source_path, is_local, linked_operation_ids, linked_request_names, updated_at
 FROM workspace_docs

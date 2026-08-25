@@ -124,6 +124,7 @@ func New(cfg *config.Config, log *zap.Logger, pool *pgxpool.Pool) *Server {
 				r.With(wsH.RequireRole("editor")).Delete("/workspace-docs/{docId}/links/{linkId}", docsyncH.DeleteDocLink)
 				r.With(wsH.RequireRole("viewer")).Get("/workspace-docs/{slug}", docsyncH.GetDoc)
 				r.With(wsH.RequireRole("editor")).Patch("/workspace-docs/{slug}", docsyncH.UpdateDoc)
+				r.With(wsH.RequireRole("editor")).Delete("/workspace-docs/{slug}", docsyncH.DeleteDoc)
 				r.With(wsH.RequireRole("viewer")).Get("/doc-graph", docsyncH.GetDocGraph)
 				r.With(wsH.RequireRole("editor")).Post("/doc-links/analyze", docsyncH.AnalyzeDocLinks)
 				r.With(wsH.RequireRole("viewer")).Get("/doc-links/suggestions", docsyncH.ListDocLinkSuggestions)

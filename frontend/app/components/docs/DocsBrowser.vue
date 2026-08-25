@@ -71,6 +71,7 @@
             :loading="docsStore.loading"
             @select="selectDoc"
             @create-local="onCreateLocal"
+            @delete-doc="onDeleteDoc"
           />
         </aside>
       </ResizablePane>
@@ -191,6 +192,15 @@
       :workspace-id="workspaceId"
       @close="suggestionsOpen = false"
     />
+
+    <ConfirmDialog
+      v-model:open="deleteConfirmOpen"
+      title="Delete document"
+      :message="deleteConfirmMessage"
+      confirm-label="Delete"
+      destructive
+      @confirm="confirmDeleteDoc"
+    />
   </div>
 </template>
 
@@ -199,6 +209,7 @@ import { ArrowLeft } from 'lucide-vue-next'
 import type { EditorView } from '@codemirror/view'
 import { useDocAutosave } from '~/composables/useDocAutosave'
 import { useEditorPreviewScrollSync } from '~/composables/useEditorPreviewScrollSync'
+import type { DocSummary } from '~/utils/docsTree'
 
 type ViewMode = 'edit' | 'preview' | 'split' | 'graph'
 
@@ -228,6 +239,9 @@ const savedTitle = ref('')
 const savedContent = ref('')
 const paletteOpen = ref(false)
 const suggestionsOpen = ref(false)
+const deleteConfirmOpen = ref(false)
+const deleteConfirmMessage = ref('')
+const docPendingDelete = ref<DocSummary | null>(null)
 const treeRef = ref<{ revealPath: (path: string) => void } | null>(null)
 const editorRef = ref<InstanceType<typeof MarkdownEditor> | null>(null)
 const previewEl = ref<HTMLElement | null>(null)
@@ -439,6 +453,39 @@ async function onCreateLocal(folderPath: string) {
     selectDoc(doc.slug)
   } catch {
     window.alert('Could not create document at that path.')
+  }
+}
+
+function onDeleteDoc(doc: DocSummary) {
+  docPendingDelete.value = doc
+  deleteConfirmMessage.value = `Delete "${doc.title}"? This cannot be undone.`
+  deleteConfirmOpen.value = true
+}
+
+async function confirmDeleteDoc() {
+  const doc = docPendingDelete.value
+  if (!doc) return
+  deleteConfirmOpen.value = false
+  docPendingDelete.value = null
+  try {
+    const wasActive = activeSlug.value === doc.slug
+    if (wasActive) {
+      autosave.cancelPending()
+      autosave.markSaved()
+      appliedSlug.value = null
+    }
+    await docsStore.deleteDoc(props.workspaceId, doc.slug)
+    void docsStore.fetchGraph(props.workspaceId)
+    if (wasActive) {
+      const next = docsStore.summaries[0]
+      if (next) {
+        await openDoc(next.slug)
+      } else {
+        await router.replace(`/workspaces/${props.workspaceId}/docs`)
+      }
+    }
+  } catch {
+    docsStore.error = 'Could not delete document.'
   }
 }
 
