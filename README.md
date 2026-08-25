@@ -179,7 +179,7 @@ Postchi brand assets live under [`frontend/public/brand/`](frontend/public/brand
 | Favicons | `favicon.ico`, `favicon-16.png`, `favicon-32.png`, `favicon-48.png` | Browser tabs |
 | Apple touch icon | [`apple-touch-icon.png`](frontend/public/brand/apple-touch-icon.png) | iOS home screen |
 | Open Graph image | [`og-image.png`](frontend/public/brand/og-image.png) | Social / link previews |
-| Web manifest | [`site.webmanifest`](frontend/public/brand/site.webmanifest) | PWA metadata (`theme_color`: `#1a1b26`) |
+| Web manifest | Generated at `/manifest.webmanifest` via `@vite-pwa/nuxt` (`theme_color`: `#1a1b26`) |
 
 <p align="center">
   <img src="frontend/public/brand/icon-512.png" alt="Postchi icon" width="96">
