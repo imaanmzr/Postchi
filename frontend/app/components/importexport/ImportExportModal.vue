@@ -45,7 +45,12 @@
               <p v-if="detectedGitProviderLabel" class="text-xs" style="color: var(--text-muted)">
                 Detected: {{ detectedGitProviderLabel }}
               </p>
-              <Input v-model="gitForm.branch" placeholder="Branch (default: main)" />
+              <GitBranchSelect
+                v-model="gitForm.branch"
+                :workspace-id="workspaceId"
+                :repo-url="gitForm.repo_url"
+                :access-token="gitForm.access_token"
+              />
               <Input v-model="gitForm.path_prefix" placeholder="Path prefix (optional, e.g. bruno)" />
               <Input
                 v-model="gitForm.access_token"

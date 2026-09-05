@@ -338,3 +338,13 @@ CREATE UNIQUE INDEX idx_collections_bruno_source_path
 CREATE UNIQUE INDEX idx_requests_bruno_source_path
     ON requests (bruno_source_id, source_path)
     WHERE bruno_source_id IS NOT NULL AND source_path <> '';
+
+CREATE TABLE git_branch_cache (
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    repo_key TEXT NOT NULL,
+    branches JSONB NOT NULL,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (workspace_id, repo_key)
+);
+
+CREATE INDEX idx_git_branch_cache_fetched ON git_branch_cache(fetched_at);

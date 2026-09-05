@@ -16,8 +16,20 @@
         placeholder="https://github.com/org/repo or GitLab /-/tree/ URL"
       />
       <p v-if="provider" class="text-xs text-muted">Detected: {{ provider }}</p>
-      <Input v-model="form.branch" placeholder="Branch (default: main)" />
-      <Input v-model="form.path_prefix" placeholder="Path prefix (optional, e.g. bruno)" />
+      <GitBranchSelect
+        v-model="form.branch"
+        :workspace-id="workspaceId"
+        :repo-url="form.repo_url"
+        :access-token="form.access_token"
+      />
+      <Input
+        v-model="form.path_prefix"
+        placeholder="Folder inside the branch (e.g. bruno-collection)"
+      />
+      <p class="text-xs text-muted">
+        For feature branches, put the <strong>branch name</strong> in Branch and the collection folder in Path prefix.
+        Your main source uses <code>bruno-collection</code> — use the same folder on the feature branch unless files moved.
+      </p>
       <Input
         v-model="form.access_token"
         type="password"
@@ -109,8 +121,18 @@
         <p v-if="detectedProvider(editForm.repo_url)" class="text-xs text-muted">
           Detected: {{ detectedProvider(editForm.repo_url) }}
         </p>
-        <Input v-model="editForm.branch" placeholder="Branch" />
-        <Input v-model="editForm.path_prefix" placeholder="Path prefix" />
+        <GitBranchSelect
+          v-model="editForm.branch"
+          :workspace-id="workspaceId"
+          :repo-url="editForm.repo_url"
+          :access-token="editForm.access_token"
+          :source-id="src.id"
+          source-kind="bruno"
+        />
+        <Input
+          v-model="editForm.path_prefix"
+          placeholder="Folder inside the branch (e.g. bruno-collection)"
+        />
         <Input
           v-model="editForm.access_token"
           type="password"
@@ -122,6 +144,14 @@
         </Button>
       </div>
     </div>
+
+    <ConfirmDialog
+      v-model:open="branchSyncOpen"
+      title="Sync from new branch"
+      :message="branchSyncMessage"
+      confirm-label="Sync now"
+      @confirm="confirmBranchSync"
+    />
 
     <ConfirmDialog
       v-model:open="deleteOpen"
@@ -182,6 +212,11 @@ const deleting = ref('')
 const deleteOpen = ref(false)
 const deleteTarget = ref<BrunoSource | null>(null)
 const editingId = ref('')
+const editOriginalBranch = ref('main')
+const branchSyncOpen = ref(false)
+const branchSyncTargetId = ref('')
+const branchSyncMessage = ref('')
+const branchSyncPending = ref(false)
 const progress = ref('')
 const error = ref('')
 const success = ref('')
@@ -214,6 +249,14 @@ const deleteMessage = computed(() =>
     ? `Remove "${deleteTarget.value.name}" and delete its synced collection from this workspace?`
     : '',
 )
+
+watch(branchSyncOpen, (open) => {
+  if (!open && branchSyncPending.value) {
+    toast.show('Branch saved. Click Sync now when you are ready.', 'success', 4000)
+    branchSyncPending.value = false
+    branchSyncTargetId.value = ''
+  }
+})
 
 watch(() => form.value.repo_url, () => applyGitLabBrowseUrlHints(form.value))
 watch(() => editForm.value.repo_url, () => applyGitLabBrowseUrlHints(editForm.value))
@@ -343,6 +386,7 @@ function toggleEdit(src: BrunoSource) {
     return
   }
   editingId.value = src.id
+  editOriginalBranch.value = src.config?.branch || 'main'
   editForm.value = {
     name: src.name,
     repo_url: src.config?.repo_url || '',
@@ -365,11 +409,28 @@ async function updateSource(sourceId: string) {
     editingId.value = ''
     await loadSources()
     success.value = 'Source updated'
+    const branchChanged = editForm.value.branch.trim() !== editOriginalBranch.value.trim()
+    const newBranch = editForm.value.branch.trim() || 'main'
+    if (branchChanged) {
+      branchSyncTargetId.value = sourceId
+      branchSyncMessage.value = `Branch changed to "${newBranch}". Sync now to load collections from this branch?`
+      branchSyncPending.value = true
+      branchSyncOpen.value = true
+    }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Update failed'
   } finally {
     updating.value = false
   }
+}
+
+async function confirmBranchSync() {
+  const id = branchSyncTargetId.value
+  branchSyncPending.value = false
+  branchSyncOpen.value = false
+  branchSyncTargetId.value = ''
+  if (!id) return
+  await syncSource(id)
 }
 
 function askDeleteSource(src: BrunoSource) {

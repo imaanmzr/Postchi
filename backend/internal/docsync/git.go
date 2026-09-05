@@ -67,7 +67,12 @@ func normalizeRepoConfig(config map[string]any) (map[string]any, error) {
 		if parsed.Branch != "" {
 			config["branch"] = parsed.Branch
 		}
-		config["path_prefix"] = parsed.PathPrefix
+		config["path_prefix"] = gitrepo.NormalizePathPrefix(parsed.Branch, parsed.PathPrefix)
+	}
+	if branch, _ := config["branch"].(string); strings.TrimSpace(branch) != "" {
+		if prefix, ok := config["path_prefix"].(string); ok {
+			config["path_prefix"] = gitrepo.NormalizePathPrefix(branch, prefix)
+		}
 	}
 	if tmpl, ok := config["link_template"].(string); ok {
 		tmpl = strings.TrimSpace(tmpl)
@@ -75,6 +80,11 @@ func normalizeRepoConfig(config map[string]any) (map[string]any, error) {
 			return nil, fmt.Errorf("link_template must include {request_slug} or {request_name}")
 		}
 		config["link_template"] = tmpl
+	}
+	if branch, _ := config["branch"].(string); strings.TrimSpace(branch) != "" {
+		if _, ok := gitrepo.SanitizeBranchName(branch); !ok {
+			return nil, fmt.Errorf("invalid branch name")
+		}
 	}
 	return config, nil
 }

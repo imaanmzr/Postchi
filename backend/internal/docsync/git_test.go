@@ -244,6 +244,16 @@ func TestGitLabPrivateListAndFetch(t *testing.T) {
 	}
 }
 
+func TestNormalizeRepoConfigInvalidBranch(t *testing.T) {
+	_, err := normalizeRepoConfig(map[string]any{
+		"repo_url": "https://github.com/acme/docs.git",
+		"branch":   "bad branch",
+	})
+	if err == nil {
+		t.Fatal("expected invalid branch error")
+	}
+}
+
 func TestSanitizeSourceConfig(t *testing.T) {
 	out := sanitizeSourceConfig(map[string]any{
 		"repo_url":     "https://github.com/a/b",

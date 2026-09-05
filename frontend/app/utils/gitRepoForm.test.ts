@@ -22,6 +22,28 @@ describe('gitRepoForm', () => {
     expect(form.path_prefix).toBe('collections/api')
   })
 
+  it('parses slash branch names and bruno-collection folder', () => {
+    const form = {
+      repo_url: 'https://git.example.com/acme/repo/-/tree/fix/BO-1287-remove-merchant-domain-check/bruno-collection',
+      branch: 'main',
+      path_prefix: '',
+    }
+    applyGitLabBrowseUrlHints(form)
+    expect(form.branch).toBe('fix/BO-1287-remove-merchant-domain-check')
+    expect(form.path_prefix).toBe('bruno-collection')
+  })
+
+  it('normalizes duplicate ticket folder in path prefix on save', () => {
+    expect(gitRepoConfigPayload({
+      repo_url: 'https://gitlab.com/acme/repo',
+      branch: 'fix/BO-1287-remove-merchant-domain-check',
+      path_prefix: 'BO-1287-remove-merchant-domain-check/bruno-collection',
+    })).toMatchObject({
+      branch: 'fix/BO-1287-remove-merchant-domain-check',
+      path_prefix: 'bruno-collection',
+    })
+  })
+
   it('builds import payload with defaults', () => {
     expect(gitRepoConfigPayload({
       repo_url: ' https://github.com/acme/repo ',

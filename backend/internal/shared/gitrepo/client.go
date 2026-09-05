@@ -194,7 +194,11 @@ func (c *Client) listGitHubFiles(ctx context.Context) ([]string, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		return nil, responseError("GitHub", resp)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, gitHubTreeNotFoundError(c, resp.StatusCode, body)
+		}
+		return nil, responseErrorBody("GitHub", resp.StatusCode, body)
 	}
 	var result struct {
 		Tree []struct {
@@ -257,6 +261,9 @@ func (c *Client) listGitLabFiles(ctx context.Context) ([]string, error) {
 			return nil, requestError("GitLab tree response failed", readErr)
 		}
 		if resp.StatusCode >= 400 {
+			if resp.StatusCode == http.StatusNotFound {
+				return nil, c.gitLabTreeNotFoundError(ctx, resp.StatusCode, body)
+			}
 			return nil, responseErrorBody("GitLab", resp.StatusCode, body)
 		}
 		var items []struct {
@@ -331,7 +338,11 @@ func (c *Client) fetchGitLabFile(ctx context.Context, filePath string) ([]byte, 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		return nil, responseError("GitLab", resp)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, c.gitLabFileNotFoundError(ctx, filePath, resp.StatusCode, body)
+		}
+		return nil, responseErrorBody("GitLab", resp.StatusCode, body)
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, c.MaxFileBytes+1))
 	if err != nil {
@@ -392,21 +403,18 @@ func splitGitLabBrowsePath(rawPath string) (repoPath, branch, browsePath string,
 	default:
 		return "", "", "", false
 	}
-	parts := strings.SplitN(rest, "/", 2)
-	if len(parts) == 0 || parts[0] == "" {
+	if strings.TrimSpace(rest) == "" {
 		return "", "", "", false
 	}
-	branch = parts[0]
-	if len(parts) == 2 {
-		browsePath = strings.Trim(parts[1], "/")
-		if strings.Contains(rawPath, "/-/blob/") {
-			if i := strings.LastIndex(browsePath, "/"); i >= 0 {
-				browsePath = browsePath[:i]
-			} else {
-				browsePath = ""
-			}
+	branch, browsePath = ParseGitLabTreeRef(rest)
+	if strings.Contains(rawPath, "/-/blob/") {
+		if i := strings.LastIndex(browsePath, "/"); i >= 0 {
+			browsePath = browsePath[:i]
+		} else {
+			browsePath = ""
 		}
 	}
+	browsePath = NormalizePathPrefix(branch, browsePath)
 	return repoPath, branch, browsePath, true
 }
 

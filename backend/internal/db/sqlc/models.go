@@ -227,6 +227,13 @@ type Example struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type GitBranchCache struct {
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	RepoKey     string             `json:"repo_key"`
+	Branches    []byte             `json:"branches"`
+	FetchedAt   pgtype.Timestamptz `json:"fetched_at"`
+}
+
 type History struct {
 	ID          pgtype.UUID        `json:"id"`
 	WorkspaceID pgtype.UUID        `json:"workspace_id"`

@@ -623,10 +623,20 @@ func normalizeBrunoRepoConfig(config map[string]any) (map[string]any, error) {
 		if parsed.Branch != "" {
 			out["branch"] = parsed.Branch
 		}
-		out["path_prefix"] = parsed.PathPrefix
+		out["path_prefix"] = gitrepo.NormalizePathPrefix(parsed.Branch, parsed.PathPrefix)
 	}
 	if branch, _ := out["branch"].(string); strings.TrimSpace(branch) == "" {
 		out["branch"] = "main"
+	}
+	if branch, _ := out["branch"].(string); strings.TrimSpace(branch) != "" {
+		if prefix, ok := out["path_prefix"].(string); ok {
+			out["path_prefix"] = gitrepo.NormalizePathPrefix(branch, prefix)
+		}
+	}
+	if branch, _ := out["branch"].(string); strings.TrimSpace(branch) != "" {
+		if _, ok := gitrepo.SanitizeBranchName(branch); !ok {
+			return nil, fmt.Errorf("invalid branch name")
+		}
 	}
 	return out, nil
 }

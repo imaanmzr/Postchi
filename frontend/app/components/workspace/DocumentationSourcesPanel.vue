@@ -15,7 +15,12 @@
         <p v-if="detectedProvider(gitForm.repo_url)" class="text-xs text-muted">
           Detected: {{ detectedProvider(gitForm.repo_url) }}
         </p>
-        <Input v-model="gitForm.branch" placeholder="Branch (default: main)" />
+        <GitBranchSelect
+          v-model="gitForm.branch"
+          :workspace-id="workspaceId"
+          :repo-url="gitForm.repo_url"
+          :access-token="gitForm.access_token"
+        />
         <Input v-model="gitForm.path_prefix" placeholder="Path prefix (optional, e.g. docs - auto-filled from browser links)" />
         <Input
           v-model="gitForm.link_template"
@@ -137,7 +142,14 @@
           <p v-if="detectedProvider(editForm.repo_url)" class="text-xs text-muted">
             Detected: {{ detectedProvider(editForm.repo_url) }}
           </p>
-          <Input v-model="editForm.branch" placeholder="Branch" />
+          <GitBranchSelect
+            v-model="editForm.branch"
+            :workspace-id="workspaceId"
+            :repo-url="editForm.repo_url"
+            :access-token="editForm.access_token"
+            :source-id="src.id"
+            source-kind="doc"
+          />
           <Input v-model="editForm.path_prefix" placeholder="Path prefix" />
           <Input
             v-model="editForm.link_template"
@@ -165,6 +177,14 @@
         </div>
       </div>
     </section>
+
+    <ConfirmDialog
+      v-model:open="branchSyncOpen"
+      title="Sync from new branch"
+      :message="branchSyncMessage"
+      confirm-label="Sync now"
+      @confirm="confirmBranchSync"
+    />
 
     <ConfirmDialog
       v-model:open="deleteOpen"
@@ -251,6 +271,11 @@ const linkAnalyzeMessage = ref('')
 const analyzingLinks = ref(false)
 const backfilling = ref(false)
 const editingId = ref('')
+const editOriginalBranch = ref('main')
+const branchSyncOpen = ref(false)
+const branchSyncTargetId = ref('')
+const branchSyncMessage = ref('')
+const branchSyncPending = ref(false)
 const newToken = ref('')
 const tokenName = ref('CI push token')
 
@@ -272,6 +297,14 @@ const editForm = ref({
   link_template: '',
   collection_id: '',
   access_token: '',
+})
+
+watch(branchSyncOpen, (open) => {
+  if (!open && branchSyncPending.value) {
+    toast.show('Branch saved. Click Sync now when you are ready.', 'success', 4000)
+    branchSyncPending.value = false
+    branchSyncTargetId.value = ''
+  }
 })
 
 watch(() => gitForm.value.repo_url, () => applyGitLabBrowseUrlHints(gitForm.value))
@@ -382,6 +415,7 @@ function toggleEdit(src: DocSource) {
     return
   }
   editingId.value = src.id
+  editOriginalBranch.value = src.config?.branch || 'main'
   editForm.value = {
     name: src.name,
     repo_url: src.config?.repo_url || '',
@@ -405,11 +439,28 @@ async function updateSource(id: string) {
       body.access_token = editForm.value.access_token
     }
     await api.patch(`/api/workspaces/${props.workspaceId}/doc-sources/${id}`, body)
+    const branchChanged = editForm.value.branch.trim() !== editOriginalBranch.value.trim()
+    const newBranch = editForm.value.branch.trim() || 'main'
     editingId.value = ''
     await load()
+    if (branchChanged) {
+      branchSyncTargetId.value = id
+      branchSyncMessage.value = `Branch changed to "${newBranch}". Sync now to load documentation from this branch?`
+      branchSyncPending.value = true
+      branchSyncOpen.value = true
+    }
   } finally {
     updating.value = false
   }
+}
+
+async function confirmBranchSync() {
+  const id = branchSyncTargetId.value
+  branchSyncPending.value = false
+  branchSyncOpen.value = false
+  branchSyncTargetId.value = ''
+  if (!id) return
+  await syncSource(id)
 }
 
 async function syncSource(id: string) {

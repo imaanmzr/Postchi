@@ -35,6 +35,16 @@ func TestNormalizeBrunoRepoConfigMissingURL(t *testing.T) {
 	}
 }
 
+func TestNormalizeBrunoRepoConfigInvalidBranch(t *testing.T) {
+	_, err := normalizeBrunoRepoConfig(map[string]any{
+		"repo_url": "https://github.com/acme/repo",
+		"branch":   "bad branch",
+	})
+	if err == nil {
+		t.Fatal("expected invalid branch error")
+	}
+}
+
 func TestStringFromConfig(t *testing.T) {
 	if got := stringFromConfig(map[string]any{"branch": " develop "}, "branch"); got != "develop" {
 		t.Fatalf("got %q", got)
