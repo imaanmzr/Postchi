@@ -23,6 +23,13 @@ func TestParseGitLabTreeRefNestedPath(t *testing.T) {
 	}
 }
 
+func TestParseGitLabTreeRefTwoSegmentBranch(t *testing.T) {
+	branch, path := ParseGitLabTreeRef("feature/unmerged-docs")
+	if branch != "feature/unmerged-docs" || path != "" {
+		t.Fatalf("got branch=%q path=%q", branch, path)
+	}
+}
+
 func TestNormalizePathPrefixStripsDuplicateTicketFolder(t *testing.T) {
 	got := NormalizePathPrefix(
 		"fix/BO-1287-remove-merchant-domain-check",

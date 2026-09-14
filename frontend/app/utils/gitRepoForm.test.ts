@@ -3,6 +3,10 @@ import {
   applyGitLabBrowseUrlHints,
   detectedGitProvider,
   gitRepoConfigPayload,
+  isValidLinkTemplate,
+  parseGitLabTreeRef,
+  stripGitBrowsePath,
+  suggestedLinkTemplate,
 } from './gitRepoForm'
 
 describe('gitRepoForm', () => {
@@ -54,5 +58,43 @@ describe('gitRepoForm', () => {
       branch: 'main',
       path_prefix: 'bruno',
     })
+  })
+
+  it('parses two-segment slash branch names', () => {
+    expect(parseGitLabTreeRef('feature/unmerged-docs')).toEqual({
+      branch: 'feature/unmerged-docs',
+      path: '',
+    })
+  })
+
+  it('strips browse paths from saved repo URLs', () => {
+    expect(stripGitBrowsePath('https://gitlab.com/acme/repo/-/tree/feature/docs')).toBe('https://gitlab.com/acme/repo')
+    expect(gitRepoConfigPayload({
+      repo_url: 'https://gitlab.com/acme/repo/-/tree/feature/unmerged/docs',
+      branch: 'feature/unmerged',
+      path_prefix: 'docs',
+      link_template: 'docs/{request_slug}.md',
+    })).toEqual({
+      repo_url: 'https://gitlab.com/acme/repo',
+      branch: 'feature/unmerged',
+      path_prefix: 'docs',
+      link_template: 'docs/{request_slug}.md',
+    })
+  })
+
+  it('validates link templates', () => {
+    expect(isValidLinkTemplate('docs/{request_slug}.md')).toBe(true)
+    expect(isValidLinkTemplate('docs/{operation_id}.md')).toBe(true)
+    expect(isValidLinkTemplate('docs')).toBe(false)
+    expect(suggestedLinkTemplate('docs')).toBe('{path_prefix}/{request_slug}.md')
+  })
+
+  it('rejects static link templates in payload', () => {
+    expect(() => gitRepoConfigPayload({
+      repo_url: 'https://github.com/acme/repo',
+      branch: 'feature/unmerged',
+      path_prefix: 'docs',
+      link_template: 'docs',
+    })).toThrow(/link template/i)
   })
 })

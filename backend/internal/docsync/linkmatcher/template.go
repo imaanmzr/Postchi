@@ -91,5 +91,7 @@ func ValidateLinkTemplate(template string) bool {
 	if template == "" {
 		return true
 	}
-	return strings.Contains(template, "{request_slug}") || strings.Contains(template, "{request_name}")
+	return strings.Contains(template, "{request_slug}") ||
+		strings.Contains(template, "{request_name}") ||
+		strings.Contains(template, "{operation_id}")
 }

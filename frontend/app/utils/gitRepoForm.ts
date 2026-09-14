@@ -45,10 +45,42 @@ export function parseGitLabTreeRef(rest: string): { branch: string, path: string
     }
   }
 
+  if (segments.length === 2) {
+    return {
+      branch: decodeURIComponent(segments.join('/')),
+      path: '',
+    }
+  }
+
   return {
     branch: decodeURIComponent(first),
     path: segments.slice(1).join('/'),
   }
+}
+
+export function stripGitBrowsePath(repoUrl: string): string {
+  const trimmed = repoUrl.trim()
+  for (const marker of ['/-/tree/', '/-/blob/']) {
+    const idx = trimmed.indexOf(marker)
+    if (idx >= 0) {
+      return trimmed.slice(0, idx).replace(/\/$/, '')
+    }
+  }
+  return trimmed
+}
+
+export function isValidLinkTemplate(template: string): boolean {
+  const value = template.trim()
+  if (!value) return true
+  return value.includes('{request_slug}')
+    || value.includes('{request_name}')
+    || value.includes('{operation_id}')
+}
+
+export function suggestedLinkTemplate(pathPrefix: string): string {
+  const prefix = pathPrefix.trim().replace(/^\/+|\/+$/g, '')
+  if (!prefix) return '{request_slug}.md'
+  return `{path_prefix}/{request_slug}.md`
 }
 
 export function normalizePathPrefix(branch: string, pathPrefix: string): string {
@@ -92,12 +124,15 @@ export function applyGitLabBrowseUrlHints(form: GitRepoFormFields) {
 export function gitRepoConfigPayload(form: GitRepoFormFields) {
   const branch = form.branch.trim() || 'main'
   const config: Record<string, string> = {
-    repo_url: form.repo_url.trim(),
+    repo_url: stripGitBrowsePath(form.repo_url),
     branch,
     path_prefix: normalizePathPrefix(branch, form.path_prefix.trim()),
   }
   const linkTemplate = form.link_template?.trim()
   if (linkTemplate) {
+    if (!isValidLinkTemplate(linkTemplate)) {
+      throw new Error('Link template must include {request_slug}, {request_name}, or {operation_id}')
+    }
     config.link_template = linkTemplate
   }
   return config

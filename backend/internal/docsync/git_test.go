@@ -135,6 +135,51 @@ func TestNormalizeRepoConfigLinkTemplate(t *testing.T) {
 	if out["link_template"] != "docs/{request_slug}.md" {
 		t.Fatalf("link_template: %v", out["link_template"])
 	}
+	out, err = normalizeRepoConfig(map[string]any{
+		"repo_url":      "https://github.com/acme/docs.git",
+		"link_template": "docs/{operation_id}.md",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out["link_template"] != "docs/{operation_id}.md" {
+		t.Fatalf("link_template: %v", out["link_template"])
+	}
+}
+
+func TestNormalizeRepoConfigForSyncDropsInvalidLinkTemplate(t *testing.T) {
+	out, err := normalizeRepoConfigForSync(map[string]any{
+		"repo_url":      "https://github.com/acme/docs.git",
+		"branch":        "feature/docs-update",
+		"path_prefix":   "docs",
+		"link_template": "docs",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := out["link_template"]; ok {
+		t.Fatalf("expected invalid link_template to be dropped, got %v", out["link_template"])
+	}
+	if out["branch"] != "feature/docs-update" {
+		t.Fatalf("branch: %v", out["branch"])
+	}
+}
+
+func TestNormalizeRepoConfigPreservesExplicitBranchFromBrowseURL(t *testing.T) {
+	out, err := normalizeRepoConfig(map[string]any{
+		"repo_url":    "https://git.example.internal/acme/apps/platform-api/-/tree/main/docs",
+		"branch":      "feature/unmerged-docs",
+		"path_prefix": "docs",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out["branch"] != "feature/unmerged-docs" {
+		t.Fatalf("branch: %v", out["branch"])
+	}
+	if out["path_prefix"] != "docs" {
+		t.Fatalf("path_prefix: %v", out["path_prefix"])
+	}
 }
 
 func TestGitClientFromConfig(t *testing.T) {

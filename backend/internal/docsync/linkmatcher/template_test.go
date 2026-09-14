@@ -41,4 +41,7 @@ func TestValidateLinkTemplate(t *testing.T) {
 	if !ValidateLinkTemplate("") {
 		t.Fatal("empty template should be valid")
 	}
+	if !ValidateLinkTemplate("docs/{operation_id}.md") {
+		t.Fatal("expected operation_id template to be valid")
+	}
 }

@@ -54,6 +54,14 @@ func parseRepoURLInput(raw string) (repoURLParseResult, error) {
 }
 
 func normalizeRepoConfig(config map[string]any) (map[string]any, error) {
+	return normalizeRepoConfigWithOptions(config, true)
+}
+
+func normalizeRepoConfigForSync(config map[string]any) (map[string]any, error) {
+	return normalizeRepoConfigWithOptions(config, false)
+}
+
+func normalizeRepoConfigWithOptions(config map[string]any, strictLinkTemplate bool) (map[string]any, error) {
 	config = sanitizeSourceConfig(config)
 	repoURL, _ := config["repo_url"].(string)
 	parsed, err := gitrepo.ParseURL(repoURL)
@@ -65,9 +73,13 @@ func normalizeRepoConfig(config map[string]any) (map[string]any, error) {
 	config["api_base_url"] = parsed.APIBase
 	if parsed.FromBrowseURL {
 		if parsed.Branch != "" {
-			config["branch"] = parsed.Branch
+			if existing, ok := config["branch"].(string); !ok || strings.TrimSpace(existing) == "" {
+				config["branch"] = parsed.Branch
+			}
 		}
-		config["path_prefix"] = gitrepo.NormalizePathPrefix(parsed.Branch, parsed.PathPrefix)
+		if existing, ok := config["path_prefix"].(string); !ok || strings.TrimSpace(existing) == "" {
+			config["path_prefix"] = gitrepo.NormalizePathPrefix(parsed.Branch, parsed.PathPrefix)
+		}
 	}
 	if branch, _ := config["branch"].(string); strings.TrimSpace(branch) != "" {
 		if prefix, ok := config["path_prefix"].(string); ok {
@@ -77,9 +89,15 @@ func normalizeRepoConfig(config map[string]any) (map[string]any, error) {
 	if tmpl, ok := config["link_template"].(string); ok {
 		tmpl = strings.TrimSpace(tmpl)
 		if tmpl != "" && !linkmatcher.ValidateLinkTemplate(tmpl) {
-			return nil, fmt.Errorf("link_template must include {request_slug} or {request_name}")
+			if strictLinkTemplate {
+				return nil, fmt.Errorf("link_template must include {request_slug}, {request_name}, or {operation_id}")
+			}
+			delete(config, "link_template")
+		} else if tmpl != "" {
+			config["link_template"] = tmpl
+		} else {
+			delete(config, "link_template")
 		}
-		config["link_template"] = tmpl
 	}
 	if branch, _ := config["branch"].(string); strings.TrimSpace(branch) != "" {
 		if _, ok := gitrepo.SanitizeBranchName(branch); !ok {

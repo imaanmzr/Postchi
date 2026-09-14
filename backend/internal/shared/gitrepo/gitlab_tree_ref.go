@@ -47,6 +47,11 @@ func ParseGitLabTreeRef(rest string) (branch, browsePath string) {
 		return decodedBranch, last
 	}
 
+	if len(clean) == 2 {
+		decodedBranch, _ := url.QueryUnescape(strings.Join(clean, "/"))
+		return decodedBranch, ""
+	}
+
 	decodedBranch, _ := url.QueryUnescape(clean[0])
 	return decodedBranch, strings.Join(clean[1:], "/")
 }

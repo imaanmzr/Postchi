@@ -539,7 +539,7 @@ type syncResultMeta struct {
 
 func (h *Handler) syncGitDocs(ctx context.Context, wsID, sourceID uuid.UUID, config map[string]any, tokenEnc *string, collectionID pgtype.UUID) (int, syncResultMeta, error) {
 	meta := syncResultMeta{}
-	normalized, err := normalizeRepoConfig(config)
+	normalized, err := normalizeRepoConfigForSync(config)
 	if err != nil {
 		return 0, meta, err
 	}
